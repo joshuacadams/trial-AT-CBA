@@ -78,7 +78,7 @@ else:
 
 inputs.default_parameters = inputs.default_parameters.astype({'value': 'float64'})
 
-inputs.sensitivities = pd.read_csv('names\sensitivity_test.csv')
+inputs.sensitivities = pd.read_csv('names/sensitivity_test.csv')
 inputs.sensitivities = inputs.sensitivities.set_index(['sensitivity'])
 inputs.sensitivities = inputs.sensitivities.astype({
     'up_min': 'float64',
