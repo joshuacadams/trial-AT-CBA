@@ -1,0 +1,7 @@
+attr
+numpy
+pandas
+plotly
+seaborn
+matplotlib
+inputs

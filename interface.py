@@ -9,12 +9,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import warnings
 import os
-import io
-import openpyxl
-import base64
-import uuid
-import re
-import json
+
 
 import inputs
 import streamlit_tables as stb
