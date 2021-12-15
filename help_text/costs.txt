@@ -1,0 +1,9 @@
+### Capital and operating costs
+
+Project costs include the construction and maintenance costs of the project for each year over the appraisal period. 
+
+The cost of a project will vary depending on its type, location, scale and quality. For example, a pedestrian refuge island could cost between $5,000 and $30,000 depending on the style and extent of the project, whereas construction costs for pedestrian/cycle paths could be between $1.5 million and $3 million per kilometre.
+
+Costs should be expressed in 2019 dollars as this tool uses a real discount rate which accounts for inflation.
+
+See: ATAP M4 - Active Travel (2021), section 7.

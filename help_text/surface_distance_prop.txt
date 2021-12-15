@@ -1,0 +1,7 @@
+### Total trip infrastructure type
+
+Surface distance represents estimates of the proportion of the total trip distance travelled on various sutrface types. Surface distance proportions are used to calculate crash risk reduction benefits to the extent that the project results in less travel on relatively high-risk surfaces. They are also used to calculate time savings benefits to the extent the project results in relatively more travel on surfaces with a higher average speed.
+
+For most active travel trips, users will travel some proportion of their total trip distance on different surfaces. Each surface will expose the user to different safety risks and the user can achieve different average speeds depending on the surface type.
+
+If the 'Apply infrastructure type proportions only to parts of the trip not on the project infrastructure' button is ticked, these proportions will be applied only to the trip length outside of the facility. If this button is not ticked, the proportions will include the portion of the trip on the facility. It may be appropriate not to tick the box if most users only use part of the infrastructure being assessed - for example if there are many exits and entries to the facility along its length.

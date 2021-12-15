@@ -1,0 +1,5 @@
+This is a simple tool to estimate the social economic benefits and costs of an active transport infrastructure project through social cost-benefit analysis. It can be used to analyse projects that seek to improve the safety, speed or amenity of walking and cycling infrastructure to assist in project design and refinement as well as in providing evidence to funding bodies.
+
+The tool collects information from the user about the size, cost and nature of a proposed active transport project, the projected demand for the project from cyclists, pedestrians, e-bike and e-scooter riders and calculates the social costs and benefits of the project based on parameters and methods sourced from the Australian Transport and Planning Assessment Framework.
+
+Throughout the tool are 'help' buttons which contain additional information explaining what inputs are required, how the tool uses them and where the default values contained are sourced from.
