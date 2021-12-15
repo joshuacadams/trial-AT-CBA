@@ -464,21 +464,21 @@ with st.expander('Results',False):
     results_export = df
     results_export.to_excel(facility_name+' CBA results.xlsx')
 
-    if st.button('Add to results.xls'):
+    # if st.button('Add to results.xls'):
 
-        if not os.path.isfile('results.xlsx'):
-            results_export.to_excel('results.xlsx')
-        else:
-            existing_file = pd.read_excel('results.xlsx')
-            existing_file.set_index('output',inplace=True)
-            if facility_name in existing_file.columns:
-                st.warning('There is already a column with the name '+facility_name)
-                if st.button('Overwrite!',key='overwrite button'):
-                    existing_file[facility_name] = results_export[facility_name].copy()
-                    existing_file.to_excel('results.xlsx')
-            else:
-                existing_file[facility_name] = results_export[facility_name].copy()
-                existing_file.to_excel('results.xlsx')
+    #     if not os.path.isfile('results.xlsx'):
+    #         results_export.to_excel('results.xlsx')
+    #     else:
+    #         existing_file = pd.read_excel('results.xlsx')
+    #         existing_file.set_index('output',inplace=True)
+    #         if facility_name in existing_file.columns:
+    #             st.warning('There is already a column with the name '+facility_name)
+    #             if st.button('Overwrite!',key='overwrite button'):
+    #                 existing_file[facility_name] = results_export[facility_name].copy()
+    #                 existing_file.to_excel('results.xlsx')
+    #         else:
+    #             existing_file[facility_name] = results_export[facility_name].copy()
+    #             existing_file.to_excel('results.xlsx')
 
     with open(facility_name+' CBA results.xlsx','rb') as file:
         results_download_button = st.download_button(
