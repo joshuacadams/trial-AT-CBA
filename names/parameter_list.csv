@@ -8,7 +8,7 @@ start_year,Start year,The year in which construction starts,2000,2040,1,,
 opening_year,Opening year,The year in which the project is open to users,2000,2040,1,,
 annualisation,Annualisation factor,The factor daily demand is multiplied by to get annual demand,,,,,
 facility_length,Facility length,Total length of facility (km),0,100,0.1,,
-base_year_demand,Base year demand,Number of users in the first year of operation,0,100000,1,mode,
+base_year_demand,Base year demand,Number of users per day in the first year of operation,0,100000,1,mode,
 demand_growth,Demand growth,Annual increase in users (%),0,100,0.1,mode,
 diversion_rate,Diversion rates,Proportion of trips by mode in the base case,0,100,0.1,mode,from_mode
 diversion_congestion,Congestion levels,Proportion of diversion from motor vehicle by congestion period,0,100,1,congestion_level,
@@ -19,7 +19,7 @@ surface_distance_prop_project,Total trip infrastructure type (project case),Prop
 trip_distance_change,Change in distances,Change in trip distances caused by the project (e.g.  For missing links or bridges),-5,5,0.1,mode,
 speed_active,Average speed for active modes by facility type,Average effective speed (including stopping at intersections),0,100,1,mode,surface
 speed_from_mode,Average speed for other modes,Average effective speed including stopping and alighting time,0,100,1,from_mode,
-time_saving,Change in travel time,Time in seconds. From intersection treatments (not from distance changes or speed improvements due to facility type switch),-240,240,1,mode,
+time_saving,Travel time saving from intersection treatments,Average time in seconds per trip. (Do not include time saving from distance changes or changes in surface type),-240,240,1,mode,
 relative_risk,Relative risk,Relative risk compared to on-road (on-road = 1),0,3,0.01,mode,surface
 vott,Value of travel time,Valuation of travel time per hour,0,100,0.01,,
 health_system,Health system costs,Healthcare cost avoided per km ($),0,10,0.01,mode,

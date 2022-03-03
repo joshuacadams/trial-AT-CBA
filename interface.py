@@ -9,6 +9,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import warnings
 import os
+from mdutils.mdutils import MdUtils
 
 
 import inputs
@@ -37,9 +38,18 @@ st.title('Active Travel Cost-Benefit Analysis Tool')
 
 st.markdown((open('help_text/sample_intro.txt').read()))
 
-st.title('File')
+st.header('File')
 
 with st.expander('Save or load projects'):
+
+    uploaded_project = None
+    if 'uploaded_project' not in st.session_state:
+        st.session_state['uploaded_project'] = False    
+    
+    if st.button('New Project'):
+        st.session_state['uploaded_project'] = False
+
+    default_path_name = st.selectbox('Default parameters',os.listdir('defaults/'))
 
     with open('saved_vars.csv') as file:
         save_button = st.download_button(
@@ -47,14 +57,13 @@ with st.expander('Save or load projects'):
             data=file,
             file_name = 'Active Travel Project.csv')
 
-    uploaded_project = None
-    if st.button('Load Project'):
-        uploaded_project = st.file_uploader('Upload Saved Project',type='csv')
-
-st.title('Inputs')
-
-with st.expander('Default parameters',False):
-    default_path_name = st.selectbox('Default parameters',os.listdir('defaults/'))
+    uploaded_project = st.file_uploader('Upload Saved Project',type='csv')
+    if uploaded_project is not None:
+        pd.read_csv(uploaded_project).to_csv('uploaded_project.csv')
+        st.session_state['uploaded_project'] = True
+   
+    
+    stb.help_button('save_or_load')
 
 #read names and default values from CSVs
 inputs.parameter_list = pd.read_csv('names/parameter_list.csv', index_col = 'parameter')
@@ -65,11 +74,12 @@ inputs.parameter_list = inputs.parameter_list.astype({
     })
 inputs.parameter_list = inputs.parameter_list.sort_index()
 
-if uploaded_project is not None:
+if st.session_state['uploaded_project'] == True:
     inputs.default_parameters = pd.read_csv(
-        uploaded_project,
+        'uploaded_project.csv',
         index_col = ['parameter','dimension_0','dimension_1']
         )
+    st.markdown('You uploaded a file YAY')
 else:
     inputs.default_parameters = pd.read_csv(
         'defaults/'+default_path_name,
@@ -93,12 +103,12 @@ inputs.sensitivities = inputs.sensitivities.astype({
 # Not sorting the index sometimes gives warnings about indexing speed but also allows variables to be input in the csv order.
 warnings.simplefilter(action='ignore', category=pd.errors.PerformanceWarning)
 
-with st.expander('Discount Rate',False):
+st.header('Appraisal Settings')
+
+with st.expander('Years and discount rate',False):
     inputs.discount_rate = stb.number_table('discount_rate')
     stb.help_button('discount_rate')
 
-
-with st.expander('Years',False):
     inputs.appraisal_period = stb.number_table('appraisal_period')
     stb.help_button('appraisal_period')
       
@@ -112,6 +122,7 @@ with st.expander('Years',False):
     inputs.annualisation = stb.number_table('annualisation')
     stb.help_button('annualisation')
 
+st.header('Project Details')
 
 with st.expander('Project Description',False):
 
@@ -181,43 +192,125 @@ with st.expander('Project Cost',False):
     st.subheader('Real capital and operating costs by year')
     stb.help_button('costs')
 
-    colcapex, colopex = st.columns(2)
-    colcapex.markdown('Capital cost $')
-    colopex.markdown('Operating cost $')
+    cost_input_style = st.radio('Cost input method',('Table','Simple'))
 
-    for yr in inputs.year:
-        year_number = yr-inputs.start_year
-        #Because appraisal period can change there might not be defaults for later years
-        #Check if year is in defaults
-        if year_number in capex_defaults.index:
-            inputs.costs.loc[(yr,'capital_cost'),'value'] = colcapex.number_input(str(yr),
-                value=int(capex_defaults.loc[year_number,'value']),
-                min_value=0,
-                step=1,
-                key = 'capex'+str(yr)
-                )
-        #If year is not in defaults, value defaults to zero
-        else:
-            inputs.costs.loc[(yr,'capital_cost'),'value'] = colcapex.number_input(str(yr),
-                min_value=0,
-                step=1,
-                key = 'capex'+str(yr)
-                )
+    if cost_input_style == 'Simple':
+        st.subheader('Capital cost')
+        simple_capex = st.number_input('Total capital cost $',
+            value=0,
+            min_value=0,
+            step=1)
+        simple_capex_period = st.number_input('Years of construction',
+            value=1,
+            min_value=1,
+            step=1)
 
-        if year_number in capex_defaults.index:
-            inputs.costs.loc[(yr,'operating_cost'),'value'] = colopex.number_input(str(yr),
-                value=int(opex_defaults.loc[year_number,'value']),
-                min_value=0,
-                step=1, 
-                key = 'opex'+str(yr)
-                )
+        st.subheader('Operating Cost')
+        simple_opex = st.number_input('Annual operating cost $',
+            value=0,
+            min_value=0,
+            step=1)
+        simple_opex_escalation = st.number_input('Real growth per year %',
+            value=0.0,
+            min_value=0.0,
+            step=0.1)
+        
+        for yr in inputs.year:
+            if yr <= (inputs.start_year + simple_capex_period - 1):
+                inputs.costs.loc[(yr,'capital_cost'),'value'] = simple_capex/simple_capex_period
+            else:
+                inputs.costs.loc[(yr,'capital_cost'),'value'] = 0
+            
+            if yr >= inputs.opening_year:
+                inputs.costs.loc[(yr,'operating_cost'),'value'] = (simple_opex*
+                    (1+(simple_opex_escalation/100))**(yr-inputs.opening_year))
+            else:
+                inputs.costs.loc[(yr,'operating_cost'),'value'] = 0
 
-        else:
-            inputs.costs.loc[(yr,'operating_cost'),'value'] = colopex.number_input(str(yr),
-                min_value=0,
-                step=1, 
-                key = 'opex'+str(yr)
-                )
+        df = inputs.costs.reset_index()
+        fig3 = px.bar(df,y='value',x='year',color='cost',orientation='v')
+        fig3.update_layout(autosize=True,width=900, title='Costs by year')
+        st.plotly_chart(fig3.update_traces(hovertemplate='$%{y:,.0f}'))
+
+
+    
+
+
+    if cost_input_style == 'Table':
+
+        colcapex, colopex = st.columns(2)
+        colcapex.markdown('Capital cost $')
+        colopex.markdown('Operating cost $')
+        
+        for yr in inputs.year:
+            year_number = yr
+            #Because appraisal period can change there might not be defaults for later years
+            #Check if year is in defaults
+            if year_number in capex_defaults.index:
+                inputs.costs.loc[(yr,'capital_cost'),'value'] = colcapex.number_input(str(yr),
+                    value=int(capex_defaults.loc[year_number,'value']),
+                    min_value=0,
+                    step=1,
+                    key = 'capex'+str(yr)
+                    )
+            #If year is not in defaults, value defaults to zero
+            else:
+                inputs.costs.loc[(yr,'capital_cost'),'value'] = colcapex.number_input(str(yr),
+                    min_value=0,
+                    step=1,
+                    key = 'capex'+str(yr)
+                    )
+
+            if year_number in opex_defaults.index:
+                inputs.costs.loc[(yr,'operating_cost'),'value'] = colopex.number_input(str(yr),
+                    value=int(opex_defaults.loc[year_number,'value']),
+                    min_value=0,
+                    step=1, 
+                    key = 'opex'+str(yr)
+                    )
+
+            else:
+                inputs.costs.loc[(yr,'operating_cost'),'value'] = colopex.number_input(str(yr),
+                    min_value=0,
+                    step=1, 
+                    key = 'opex'+str(yr)
+                    )
+
+with st.expander('Intersection treatments',False):
+
+   
+    inputs.number_of_intersections = stb.number_table('number_of_intersections')
+    inputs.number_of_intersections = int(inputs.number_of_intersections)
+    if inputs.number_of_intersections > 0:
+        intersection_parameters = ['Expected 10-year fatalities','Expected 10-year injuries','Risk reduction %']
+        #Need to re-initialise dataframe to change the index each streamlit run
+        inputs.intersection_inputs = 0
+        inputs.intersection_inputs = pd.DataFrame()
+        
+        inputs.intersection_inputs.index=pd.MultiIndex.from_product(
+            [list(range(inputs.number_of_intersections)),
+            intersection_parameters]
+            )
+        for i in range(inputs.number_of_intersections):
+            st.subheader('Intersection '+str(i+1))
+            cols = st.columns(3)
+            j = 0
+            for para in intersection_parameters:
+                if ('intersection_inputs',str(i),para) in inputs.default_parameters.index:
+                    default=inputs.default_parameters.loc['intersection_inputs',str(i),para]['value']
+                else:
+                    default=0.0         
+                inputs.intersection_inputs.loc[(i,para),'value']=cols[j].number_input(
+                    para,
+                    min_value=0.0,
+                    value=default,
+                    key='intersection'+para+str(i)
+                    )
+                j=j+1
+    
+    stb.help_button('intersection_treatments')
+
+st.header('Demand Details')
 
 import demand_calcs
 with st.expander('Demand',False):
@@ -284,12 +377,7 @@ with st.expander('Diversion',False):
     demand = demand_calcs.get_demand_frame(basic_demand)
 
 
-with st.expander('Mode attributes',False):
-    inputs.speed_active = stb.number_table('speed_active')
-    stb.help_button('speed_active')
-
-    inputs.speed_from_mode = stb.number_table('speed_from_mode')
-    stb.help_button('speed_from_mode')
+st.header('Trip Characteristics')
 
 
 with st.expander('Trip Characteristics',False):
@@ -304,7 +392,7 @@ with st.expander('Trip Characteristics',False):
     inputs.surface_distance_prop_base = stb.number_table('surface_distance_prop_base',percent = True)
     inputs.surface_distance_prop_project = stb.number_table('surface_distance_prop_project',percent = True)
 
-    if inputs.default_parameters.loc['subtract_project_length',np.NaN,np.NaN]['str_value'] == "T":
+    if inputs.default_parameters.loc['subtract_project_length',np.NaN,np.NaN]['str_value'] == "TRUE":
         default_subtract_project_length = True
     else:
         default_subtract_project_length = False
@@ -312,6 +400,7 @@ with st.expander('Trip Characteristics',False):
         'Apply infrastructure type proportions only to parts of the trip not on the project infrastructure',
         value = default_subtract_project_length
         )
+    inputs.saved_vars.loc['subtract_project_length','str_value'] = inputs.subtract_project_length
     
     stb.help_button('surface_distance_prop')
 
@@ -323,47 +412,19 @@ with st.expander('Trip Characteristics',False):
     inputs.transport_share = stb.number_table('transport_share')
     stb.help_button('transport_share')
 
+st.header('Parameters')
 
 with st.expander('Safety',False):
     inputs.relative_risk = stb.number_table('relative_risk')
     stb.help_button('relative_risk')
 
 
+with st.expander('Mode attributes',False):
+    inputs.speed_active = stb.number_table('speed_active')
+    stb.help_button('speed_active')
 
-with st.expander('Intersection treatments',False):
-
-   
-    inputs.number_of_intersections = stb.number_table('number_of_intersections')
-    inputs.number_of_intersections = int(inputs.number_of_intersections)
-    if inputs.number_of_intersections > 0:
-        intersection_parameters = ['Expected 10-year fatalities','Expected 10-year injuries','Risk reduction %']
-        #Need to re-initialise dataframe to change the index each streamlit run
-        inputs.intersection_inputs = 0
-        inputs.intersection_inputs = pd.DataFrame()
-        
-        inputs.intersection_inputs.index=pd.MultiIndex.from_product(
-            [list(range(inputs.number_of_intersections)),
-            intersection_parameters]
-            )
-        for i in range(inputs.number_of_intersections):
-            st.subheader('Intersection '+str(i+1))
-            cols = st.columns(3)
-            j = 0
-            for para in intersection_parameters:
-                if ('intersection_inputs',str(i),para) in inputs.default_parameters.index:
-                    default=inputs.default_parameters.loc['intersection_inputs',str(i),para]['value']
-                else:
-                    default=0.0         
-                inputs.intersection_inputs.loc[(i,para),'value']=cols[j].number_input(
-                    para,
-                    min_value=0.0,
-                    value=default,
-                    key='intersection'+para+str(i)
-                    )
-                j=j+1
-    
-    stb.help_button('intersection_treatments')
-    
+    inputs.speed_from_mode = stb.number_table('speed_from_mode')
+    stb.help_button('speed_from_mode')
 
 
 with st.expander('Unit Values',False):
@@ -447,7 +508,7 @@ discounted_benefits = CBA.discount_benefits(benefits,inputs.discount_rate)
 discounted_costs = CBA.discount_costs(inputs.costs,inputs.discount_rate)
 inputs.results = CBA.calculate_results(discounted_benefits,discounted_costs)
 
-st.title('Results')
+st.header('Results')
 with st.expander('Results',False):
     st.header('Headline results')
 
@@ -455,6 +516,8 @@ with st.expander('Results',False):
     col1.metric('Net Present Value',value='$'+"{:,.0f}".format(inputs.results['NPV']))
     col2.metric('Benefit Cost Ratio (BCR1)',value='{:,.2f}'.format(inputs.results['BCR1']))
     col3.metric('Benefit Cost Ratio (BCR2)',value='{:,.2f}'.format(inputs.results['BCR2']))
+
+    stb.help_button('headline_results')
 
     df = pd.DataFrame.from_dict(inputs.results, orient='index',columns=['value'])
     df = df.append(discounted_benefits.groupby('benefit').sum())
@@ -480,11 +543,11 @@ with st.expander('Results',False):
     #             existing_file[facility_name] = results_export[facility_name].copy()
     #             existing_file.to_excel('results.xlsx')
 
-    with open(facility_name+' CBA results.xlsx','rb') as file:
-        results_download_button = st.download_button(
-            label='Download results',
-            data=file,
-            file_name = facility_name+' CBA results.xlsx')
+    # with open(facility_name+' CBA results.xlsx','rb') as file:
+    #     results_download_button = st.download_button(
+    #         label='Download results',
+    #         data=file,
+    #         file_name = facility_name+' CBA results.xlsx')
 
     st.header('Total discounted benefits')
 
@@ -493,32 +556,34 @@ with st.expander('Results',False):
     if results_format == 'charts':            
 
         df = discounted_benefits.groupby('mode').sum()
-        fig = px.bar(df,y=df.index,x='value',orientation='h')
-        fig.update_layout(autosize=True,width=900, title='Benefits by mode')
-        st.plotly_chart(fig.update_traces(hovertemplate='$%{x:,.0f}'))
+        fig1 = px.bar(df,y=df.index,x='value',orientation='h')
+        fig1.update_layout(autosize=True,width=900, title='Benefits by mode')
+        st.plotly_chart(fig1.update_traces(hovertemplate='$%{x:,.0f}'))
 
         df = discounted_benefits.groupby('benefit').sum()
-        fig = px.bar(df,y=df.index,x='value',orientation='h')
-        fig.update_layout(autosize=True,width=900, title='Benefits by benefit type')
-        st.plotly_chart(fig.update_traces(hovertemplate='$%{x:,.0f}'))
+        fig2 = px.bar(df,y=df.index,x='value',orientation='h')
+        fig2.update_layout(autosize=True,width=900, title='Benefits by benefit type')
+        st.plotly_chart(fig2.update_traces(hovertemplate='$%{x:,.0f}'))
 
         df = discounted_benefits.groupby('year').sum()
-        fig = px.bar(df,y='value',x=df.index,orientation='v')
-        fig.update_layout(autosize=True,width=900, title='Benefits by year')
-        st.plotly_chart(fig.update_traces(hovertemplate='$%{x:,.0f}'))
+        fig3 = px.bar(df,y='value',x=df.index,orientation='v')
+        fig3.update_layout(autosize=True,width=900, title='Benefits by year')
+        st.plotly_chart(fig3.update_traces(hovertemplate='$%{y:,.0f}'))
         
         df = discounted_benefits.groupby(['benefit','mode']).sum().reset_index()
-        fig = px.bar(df,y='mode',x='value',color='benefit',orientation='h')
-        fig.update_layout(autosize=True,width=900, title='Benefits by mode and benefit type')
-        st.plotly_chart(fig.update_traces(hovertemplate='$%{x:,.0f}'))
+        fig4 = px.bar(df,y='mode',x='value',color='benefit',orientation='h')
+        fig4.update_layout(autosize=True,width=900, title='Benefits by mode and benefit type')
+        st.plotly_chart(fig4.update_traces(hovertemplate='$%{x:,.0f}'))
 
     if results_format == 'tables':
         st.markdown('Accessible tables will go here')
 
+# CURTIS - PRESENTATION CODE HERE
 
-user_flows = CBA.get_user_flows(demand, discounted_benefits)
 
 #TODO Repair user flows calc and re-think presentation
+
+# user_flows = CBA.get_user_flows(demand, discounted_benefits)
 
 # with st.expander('Benefit flows',False):
 #     y = user_flows.groupby(['benefit']).sum()['value'].tolist()
@@ -573,7 +638,7 @@ with st.expander('Sensitivity testing',False):
 # Whenever a streamlit input is updated, the entire program is re-run with 
 # streamlit remembering the new values. 
 # stb.number_input and other streamlit code copies the values of all inputs 
-# to saved_vars or saved_costs which become save_file below.
+# to saved_vars, saved_costs and saved_intersection_inputs which become save_file below.
 # This csv is then an input to the save button.
 # That way, the inputs to the "previous" run are saved to saved_vars.csv
 # and the save button can be at the top of the page
@@ -583,5 +648,14 @@ saved_costs.index.names = (['parameter','dimension_0'])
 saved_costs['dimension_1'] = ""
 saved_costs.set_index('dimension_1',inplace=True,append=True)
 save_file = inputs.saved_vars.append(saved_costs)
+
+if inputs.number_of_intersections > 0:
+    saved_intersection_inputs = inputs.intersection_inputs
+    saved_intersection_inputs.insert(loc=0,column = 'parameter',value='intersection_inputs')
+    saved_intersection_inputs.set_index('parameter',append=True,inplace=True)
+    saved_intersection_inputs.swaplevel(0,2)
+    saved_intersection_inputs.index.names = (['parameter','dimension_0','dimension_1'])
+    save_file = save_file.append(saved_intersection_inputs)
+
 
 save_file.to_csv('saved_vars.csv')

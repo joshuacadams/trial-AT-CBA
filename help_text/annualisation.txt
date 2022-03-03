@@ -1,6 +1,8 @@
 ### Annualisation factor
 
-The annualisation factor converts daily demand estimates to annual demand to calculate net benefits. An appropriate annualisation factor should depend on the expected usage of the facility and how demand assumptions have been reached. Care is needed to ensure that trip making and therefore benefits are not overstated.
+The annualisation factor converts daily demand estimates to annual demand to calculate net benefits. An appropriate annualisation factor should depend on the expected usage of the facility and how demand assumptions have been reached.
+
+It is important that the annulisation factor and demand assumptions are aligned.
 
 For example, if demand is a weekly average, an annualisation factor of 365 would be appropriate.
 

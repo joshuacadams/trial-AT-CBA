@@ -103,7 +103,7 @@ def calculate_benefits(demand, trip_distance_sensitivity=1, transport_share_sens
     travel_time_perceived_change = distance_perceived_change/inputs.speed_active
     travel_time_perceived_change_per_trip = (
         travel_time_perceived_change.groupby(level='mode').sum()
-        + inputs.time_saving
+        + inputs.time_saving/60/60
         )
     change_in_travel_time_cost_per_trip = travel_time_perceived_change_per_trip*inputs.vott
 
