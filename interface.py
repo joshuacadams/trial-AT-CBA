@@ -519,13 +519,64 @@ with st.expander('Results',False):
 
     stb.help_button('headline_results')
 
+    with open ('Results.pdf',"rb") as file:
+        st.download_button('PDF report',data=file,file_name='Results.pdf')
+
     df = pd.DataFrame.from_dict(inputs.results, orient='index',columns=['value'])
     df = df.append(discounted_benefits.groupby('benefit').sum())
     df = df.append(discounted_costs.groupby('cost').sum())
     df = df.rename(columns={'value':facility_name})
     df.index.name = 'output'
     results_export = df
-    results_export.to_excel(facility_name+' CBA results.xlsx')
+    results_name = facility_name+' CBA results.xlsx'
+    results_export.to_excel(results_name)
+
+    df = discounted_benefits.reset_index()
+
+    with pd.ExcelWriter(results_name,
+                    mode='a', engine = 'openpyxl') as writer:  
+        df.to_excel(writer, sheet_name='Discounted benefits pivot')
+
+    df = benefits.reset_index()
+
+    with pd.ExcelWriter(results_name,
+                    mode='a', engine = 'openpyxl') as writer:  
+        df.to_excel(writer, sheet_name='Un-discounted benefits pivot')    
+
+    def append_excel_results_sheet(df,sheet_name,rows,columns):
+        df = df.pivot_table(index=rows,columns=columns,values='value')
+        with pd.ExcelWriter(results_name,
+                        mode='a', engine = 'openpyxl') as writer:  
+            df.to_excel(writer, sheet_name=sheet_name)
+
+    append_excel_results_sheet(basic_demand.reset_index(),'Daily demand','mode','year')
+    append_excel_results_sheet(discounted_costs.reset_index(),'Discounted costs by type','cost','year')
+    append_excel_results_sheet(discounted_benefits,'Benefits by type','benefit','year')
+    append_excel_results_sheet(discounted_benefits,'Benefits by mode','mode','year')
+    append_excel_results_sheet(discounted_benefits,'Benefits by mode and diversion',['mode','from_mode'],'year')
+    append_excel_results_sheet(discounted_benefits,'Benefits by mode and type',['benefit','mode'],'year')
+
+
+
+    # df = discounted_benefits.pivot_table(index='benefit',columns='year',values='value')
+    # with pd.ExcelWriter(results_name,
+    #                 mode='a', engine = 'openpyxl') as writer:  
+    #     df.to_excel(writer, sheet_name='Benefits by year')
+
+    # df = discounted_benefits.pivot_table(index='mode',columns='year',values='value')
+
+    # with pd.ExcelWriter(results_name,
+    #                 mode='a', engine = 'openpyxl') as writer:  
+    #     df.to_excel(writer, sheet_name='Benefits by mode by year')
+
+    # df = discounted_benefits.pivot_table(index=['mode','from_mode'],columns='year',values='value')
+
+    # with pd.ExcelWriter(results_name,
+    #                 mode='a', engine = 'openpyxl') as writer:  
+    #     df.to_excel(writer, sheet_name='Benefits by mode and from mode by year')
+
+    with open (results_name,"rb") as file:
+        st.download_button('Excel spreadsheets',data=file,file_name=results_name)
 
     # if st.button('Add to results.xls'):
 
