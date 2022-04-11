@@ -602,32 +602,32 @@ with st.expander('Results',False):
 
     st.header('Total discounted benefits')
 
-    results_format = st.radio('Display results as',('charts','tables'))
+    # results_format = st.radio('Display results as',('charts','tables'))
 
-    if results_format == 'charts':            
+    # if results_format == 'charts':            
 
-        df = discounted_benefits.groupby('mode').sum()
-        fig1 = px.bar(df,y=df.index,x='value',orientation='h')
-        fig1.update_layout(autosize=True,width=900, title='Benefits by mode')
-        st.plotly_chart(fig1.update_traces(hovertemplate='$%{x:,.0f}'))
+    df = discounted_benefits.groupby('mode').sum()
+    fig1 = px.bar(df,y=df.index,x='value',orientation='h')
+    fig1.update_layout(autosize=True,width=900, title='Benefits by mode')
+    st.plotly_chart(fig1.update_traces(hovertemplate='$%{x:,.0f}'))
 
-        df = discounted_benefits.groupby('benefit').sum()
-        fig2 = px.bar(df,y=df.index,x='value',orientation='h')
-        fig2.update_layout(autosize=True,width=900, title='Benefits by benefit type')
-        st.plotly_chart(fig2.update_traces(hovertemplate='$%{x:,.0f}'))
+    df = discounted_benefits.groupby('benefit').sum()
+    fig2 = px.bar(df,y=df.index,x='value',orientation='h')
+    fig2.update_layout(autosize=True,width=900, title='Benefits by benefit type')
+    st.plotly_chart(fig2.update_traces(hovertemplate='$%{x:,.0f}'))
 
-        df = discounted_benefits.groupby('year').sum()
-        fig3 = px.bar(df,y='value',x=df.index,orientation='v')
-        fig3.update_layout(autosize=True,width=900, title='Benefits by year')
-        st.plotly_chart(fig3.update_traces(hovertemplate='$%{y:,.0f}'))
-        
-        df = discounted_benefits.groupby(['benefit','mode']).sum().reset_index()
-        fig4 = px.bar(df,y='mode',x='value',color='benefit',orientation='h')
-        fig4.update_layout(autosize=True,width=900, title='Benefits by mode and benefit type')
-        st.plotly_chart(fig4.update_traces(hovertemplate='$%{x:,.0f}'))
+    df = discounted_benefits.groupby('year').sum()
+    fig3 = px.bar(df,y='value',x=df.index,orientation='v')
+    fig3.update_layout(autosize=True,width=900, title='Benefits by year')
+    st.plotly_chart(fig3.update_traces(hovertemplate='$%{y:,.0f}'))
+    
+    df = discounted_benefits.groupby(['benefit','mode']).sum().reset_index()
+    fig4 = px.bar(df,y='mode',x='value',color='benefit',orientation='h')
+    fig4.update_layout(autosize=True,width=900, title='Benefits by mode and benefit type')
+    st.plotly_chart(fig4.update_traces(hovertemplate='$%{x:,.0f}'))
 
-    if results_format == 'tables':
-        st.markdown('Accessible tables will go here')
+    # if results_format == 'tables':
+    #     st.markdown('Accessible tables will go here')
 
 # CURTIS - PRESENTATION CODE HERE
 
