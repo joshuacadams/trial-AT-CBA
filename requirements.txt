@@ -1,8 +1,13 @@
-attr
+asdict
+streamlit
 numpy
 pandas
 plotly
 seaborn
 matplotlib
-inputs
-openpyxl
+mdutils
+kaleido
+reportlab
+pdfdocument
+PyPDF2
+svglib
