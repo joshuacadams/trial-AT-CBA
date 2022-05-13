@@ -9,3 +9,4 @@ reportlab
 pdfdocument
 PyPDF2
 svglib
+openpyxl
