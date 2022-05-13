@@ -39,6 +39,7 @@ def calculate_benefits(demand, trip_distance_sensitivity=1, transport_share_sens
         off_facility_trip_distance = trip_distance-inputs.facility_length
         on_facility_trip_distance = trip_distance*0 + inputs.facility_length
 
+
         #If trip length is less than facility length assume whole trip is on facility
         for mode in off_facility_trip_distance.index:
             if off_facility_trip_distance.loc[mode,'value'] < 0:
@@ -55,11 +56,14 @@ def calculate_benefits(demand, trip_distance_sensitivity=1, transport_share_sens
             off_facility_trip_distance,
             inputs.surface_distance_prop_base/100
             )
+
+        
         #Set up frame of on-facility distance by surface
         on_facility_trip_distance_base = on_facility_trip_distance.copy()
         on_facility_trip_distance_base['surface']=inputs.facility_type_existing
         on_facility_trip_distance_base.set_index('surface',append=True,inplace=True)
         
+
         #Add on and off-facility distance
         distance_perceived_base = (
             off_facility_distance_perceived_base
@@ -70,13 +74,15 @@ def calculate_benefits(demand, trip_distance_sensitivity=1, transport_share_sens
         #Multiply off-facility distance by surface proportions
         off_facility_distance_perceived_project = outer_product(
             off_facility_trip_distance+inputs.trip_distance_change
-            ,inputs.surface_distance_prop_base/100
+            ,inputs.surface_distance_prop_project/100
             )
+
         
         #Set up frame of on-facility distance by surface
         on_facility_trip_distance_project = on_facility_trip_distance.copy()
         on_facility_trip_distance_project['surface']=inputs.facility_type_new
         on_facility_trip_distance_project.set_index('surface',append=True,inplace=True)
+
         
         #Add on and off-facility distance
         distance_perceived_project = (
@@ -226,11 +232,11 @@ def calculate_benefits(demand, trip_distance_sensitivity=1, transport_share_sens
     congestion_benefits['benefit'] = 'Congestion'
     congestion_benefits.set_index('benefit',append=True,inplace=True)
 
-    road_provision_benefits = from_car_demand*inputs.road_provision
-    road_provision_benefits['benefit'] = 'Road provision costs'
-    road_provision_benefits.set_index('benefit',append=True,inplace=True)
+    # road_provision_benefits = from_car_demand*inputs.road_provision
+    # road_provision_benefits['benefit'] = 'Road provision costs'
+    # road_provision_benefits.set_index('benefit',append=True,inplace=True)
 
-    car_benefits = pd.concat([car_benefits,congestion_benefits,road_provision_benefits])
+    car_benefits = pd.concat([car_benefits,congestion_benefits])
     car_benefits = car_benefits.reset_index()
     car_benefits.insert(1,'from_mode','Car')
     car_benefits = car_benefits.set_index(['mode','from_mode','year','benefit'])
@@ -334,158 +340,158 @@ def do_sensitivity_CBA(demand_sensitivity=1, trip_distance_sensitivity=1, transp
 
     return res
 
-def get_user_flows(demand, discounted_benefits):
-    """Returns breakdown of total benefits from CBA results. Perceived benefits are calculated compared to the base case mode
-    instead of using the rule of a half. Implicit Mode Benefit is a balancing item to ensure total CBA net benefits by mode
-    are equal to user flows by mode"""
+# def get_user_flows(demand, discounted_benefits):
+#     """Returns breakdown of total benefits from CBA results. Perceived benefits are calculated compared to the base case mode
+#     instead of using the rule of a half. Implicit Mode Benefit is a balancing item to ensure total CBA net benefits by mode
+#     are equal to user flows by mode"""
 
-    reassign_distance_base = outer_product(
-        inputs.trip_distance_raw,
-        inputs.surface_distance_prop_base/100
-        )
+#     reassign_distance_base = outer_product(
+#         inputs.trip_distance_raw,
+#         inputs.surface_distance_prop_base/100
+#         )
    
-    project_trip_distance = inputs.trip_distance_raw + inputs.trip_distance_change
+#     project_trip_distance = inputs.trip_distance_raw + inputs.trip_distance_change
     
-    distance_project = outer_product(
-        project_trip_distance,
-        inputs.surface_distance_prop_project/100
-        )
+#     distance_project = outer_product(
+#         project_trip_distance,
+#         inputs.surface_distance_prop_project/100
+#         )
 
-    user_flows = pd.DataFrame()
+#     user_flows = pd.DataFrame()
 
-    #Difference in travel time between project case and base case (as if travel time were unperceived)
+#     #Difference in travel time between project case and base case (as if travel time were unperceived)
    
-    #calculate trip times for non mode-shift in base case
-    reassign_time_base = (
-        (reassign_distance_base/inputs.speed_active)
-        .groupby(level='mode').sum()) 
-    reassign_time_base.insert(0,'from_mode','Reassign') #insert "from_mode" index
-    reassign_time_base.set_index('from_mode',append=True,inplace=True)
+#     #calculate trip times for non mode-shift in base case
+#     reassign_time_base = (
+#         (reassign_distance_base/inputs.speed_active)
+#         .groupby(level='mode').sum()) 
+#     reassign_time_base.insert(0,'from_mode','Reassign') #insert "from_mode" index
+#     reassign_time_base.set_index('from_mode',append=True,inplace=True)
 
-    #Calculate trip times for mode shift in base case
-    from_time_base = outer_product(inputs.trip_distance_raw,1/inputs.speed_from_mode) 
-    time_base = from_time_base.append(reassign_time_base).sort_index()
+#     #Calculate trip times for mode shift in base case
+#     from_time_base = outer_product(inputs.trip_distance_raw,1/inputs.speed_from_mode) 
+#     time_base = from_time_base.append(reassign_time_base).sort_index()
 
-    #Calculate trip times in project case
-    time_project = (distance_project/inputs.speed_active).groupby(level='mode').sum()
+#     #Calculate trip times in project case
+#     time_project = (distance_project/inputs.speed_active).groupby(level='mode').sum()
 
-    time_change = time_project - time_base
-    per_trip_travel_time_cost_change = time_change*inputs.vott
+#     time_change = time_project - time_base
+#     per_trip_travel_time_cost_change = time_change*inputs.vott
 
-    travel_time_benefits = (
-        demand
-        *(inputs.transport_share/100)
-        *per_trip_travel_time_cost_change
-        *-1
-        )
+#     travel_time_benefits = (
+#         demand
+#         *(inputs.transport_share/100)
+#         *per_trip_travel_time_cost_change
+#         *-1
+#         )
 
-    user_flows = write_to_benefit_table(travel_time_benefits,'Travel time',user_flows)
+#     user_flows = write_to_benefit_table(travel_time_benefits,'Travel time',user_flows)
 
-    #Perceived health benefits
+#     #Perceived health benefits
 
-    #Calculate reassign health benefits in base case
-    reassign_perceived_health_base = inputs.trip_distance_raw*inputs.health_private 
-    reassign_perceived_health_base.insert(0,'from_mode','Reassign')
-    reassign_perceived_health_base.set_index('from_mode',append=True,inplace=True)
+#     #Calculate reassign health benefits in base case
+#     reassign_perceived_health_base = inputs.trip_distance_raw*inputs.health_private 
+#     reassign_perceived_health_base.insert(0,'from_mode','Reassign')
+#     reassign_perceived_health_base.set_index('from_mode',append=True,inplace=True)
 
-    from_mode_perceived_health_base = from_time_base*0 #health benefits are nil in the base case for from_modes
-    perceived_health_base = from_mode_perceived_health_base.append(reassign_perceived_health_base).sort_index()
-    perceived_health_project = project_trip_distance*inputs.health_private
-    per_trip_perceived_health_change = perceived_health_project - perceived_health_base
+#     from_mode_perceived_health_base = from_time_base*0 #health benefits are nil in the base case for from_modes
+#     perceived_health_base = from_mode_perceived_health_base.append(reassign_perceived_health_base).sort_index()
+#     perceived_health_project = project_trip_distance*inputs.health_private
+#     per_trip_perceived_health_change = perceived_health_project - perceived_health_base
 
-    perceived_health_benefits = demand*per_trip_perceived_health_change
+#     perceived_health_benefits = demand*per_trip_perceived_health_change
 
-    user_flows = write_to_benefit_table(perceived_health_benefits,'Mortality and morbidity benefits',user_flows)
+#     user_flows = write_to_benefit_table(perceived_health_benefits,'Mortality and morbidity benefits',user_flows)
 
-    #Change in safety
+#     #Change in safety
 
-    #Calculate per trip crash cost for reassign in base case
-    reassign_crash_cost_base = (
-        (reassign_distance_base
-        *inputs.relative_risk
-        *inputs.crash_cost_active)
-        .groupby(level='mode').sum())
+#     #Calculate per trip crash cost for reassign in base case
+#     reassign_crash_cost_base = (
+#         (reassign_distance_base
+#         *inputs.relative_risk
+#         *inputs.crash_cost_active)
+#         .groupby(level='mode').sum())
     
-    #Copy this DF to use later for induced crash costs
-    induced_crash_cost_base = reassign_crash_cost_base.copy()
+#     #Copy this DF to use later for induced crash costs
+#     induced_crash_cost_base = reassign_crash_cost_base.copy()
 
-    reassign_crash_cost_base.insert(0,'from_mode','Reassign') #insert "from_mode" index
+#     reassign_crash_cost_base.insert(0,'from_mode','Reassign') #insert "from_mode" index
     
-    reassign_crash_cost_base.set_index('from_mode',append=True,inplace=True)
+#     reassign_crash_cost_base.set_index('from_mode',append=True,inplace=True)
 
-    #Per trip crash cost for pt and car
-    from_mode_crash_cost_base = outer_product(inputs.trip_distance_raw,inputs.crash_cost_from_mode) 
+#     #Per trip crash cost for pt and car
+#     from_mode_crash_cost_base = outer_product(inputs.trip_distance_raw,inputs.crash_cost_from_mode) 
 
-    #Crash costs are zero for induced trips (It's very safe at home)
-    induced_crash_cost_base = induced_crash_cost_base*0 
+#     #Crash costs are zero for induced trips (It's very safe at home)
+#     induced_crash_cost_base = induced_crash_cost_base*0 
 
-    induced_crash_cost_base.insert(0,'from_mode','Induced') #insert "from_mode" index
-    induced_crash_cost_base.set_index('from_mode',append=True,inplace=True)
+#     induced_crash_cost_base.insert(0,'from_mode','Induced') #insert "from_mode" index
+#     induced_crash_cost_base.set_index('from_mode',append=True,inplace=True)
 
-    #append all from_modes
-    crash_cost_per_trip_base = (from_mode_crash_cost_base
-    .append(reassign_crash_cost_base)
-    .append(induced_crash_cost_base)
-    .sort_index()
-    )
+#     #append all from_modes
+#     crash_cost_per_trip_base = (from_mode_crash_cost_base
+#     .append(reassign_crash_cost_base)
+#     .append(induced_crash_cost_base)
+#     .sort_index()
+#     )
 
-    crash_cost_per_trip_project = (
-        (distance_project
-        *inputs.relative_risk
-        *inputs.crash_cost_active)
-        .groupby(level='mode').sum()
-        )
+#     crash_cost_per_trip_project = (
+#         (distance_project
+#         *inputs.relative_risk
+#         *inputs.crash_cost_active)
+#         .groupby(level='mode').sum()
+#         )
 
-    change_in_crash_cost_per_trip = crash_cost_per_trip_project - crash_cost_per_trip_base
+#     change_in_crash_cost_per_trip = crash_cost_per_trip_project - crash_cost_per_trip_base
 
-    crash_cost = demand*change_in_crash_cost_per_trip*-1
+#     crash_cost = demand*change_in_crash_cost_per_trip*-1
 
-    user_flows = write_to_benefit_table(crash_cost,'Crash cost',user_flows)
+#     user_flows = write_to_benefit_table(crash_cost,'Crash cost',user_flows)
 
 
 
-    #Change in money cost
+#     #Change in money cost
 
-    money_cost_per_km = inputs.diversion_rate.copy()
-    money_cost_per_km = money_cost_per_km*0 # Set per_km to zero to start (marginal pt resource cost = 0, induced cost = 0)
-    for mode in inputs.voc_active.index.tolist():
-        money_cost_per_km.loc[(mode,'Reassign')] = inputs.voc_active.loc[mode] 
-        money_cost_per_km.loc[(mode,'Car')] = inputs.voc_car + inputs.parking_cost
+#     money_cost_per_km = inputs.diversion_rate.copy()
+#     money_cost_per_km = money_cost_per_km*0 # Set per_km to zero to start (marginal pt resource cost = 0, induced cost = 0)
+#     for mode in inputs.voc_active.index.tolist():
+#         money_cost_per_km.loc[(mode,'Reassign')] = inputs.voc_active.loc[mode] 
+#         money_cost_per_km.loc[(mode,'Car')] = inputs.voc_car + inputs.parking_cost
 
-    money_cost_per_trip_base = inputs.trip_distance_raw*money_cost_per_km
+#     money_cost_per_trip_base = inputs.trip_distance_raw*money_cost_per_km
 
-    money_cost_per_trip_project = project_trip_distance*inputs.voc_active
+#     money_cost_per_trip_project = project_trip_distance*inputs.voc_active
 
-    money_cost_change = money_cost_per_trip_project - money_cost_per_trip_base
+#     money_cost_change = money_cost_per_trip_project - money_cost_per_trip_base
 
-    money_cost_benefits = demand*money_cost_change*-1
+#     money_cost_benefits = demand*money_cost_change*-1
 
-    user_flows = write_to_benefit_table(money_cost_benefits,'User monetary costs',user_flows)
+#     user_flows = write_to_benefit_table(money_cost_benefits,'User monetary costs',user_flows)
 
-    discounted_user_flows = discount_benefits(user_flows,inputs.discount_rate).groupby(level=('mode','from_mode','benefit')).sum()
+#     discounted_user_flows = discount_benefits(user_flows,inputs.discount_rate).groupby(level=('mode','from_mode','benefit')).sum()
 
-    benefit_flows = discounted_benefits.groupby(level=('mode','from_mode','benefit')).sum()
-    user_benefit_flows = (
-        benefit_flows.xs('Travel time',level='benefit')
-        +benefit_flows.xs('Vehicle operating costs',level='benefit')
-        +benefit_flows.xs('Crash costs',level='benefit')
-        )
+#     benefit_flows = discounted_benefits.groupby(level=('mode','from_mode','benefit')).sum()
+#     user_benefit_flows = (
+#         benefit_flows.xs('Travel time',level='benefit')
+#         +benefit_flows.xs('Vehicle operating costs',level='benefit')
+#         +benefit_flows.xs('Crash costs',level='benefit')
+#         )
        
-    implicit_mode_benefit = user_benefit_flows - discounted_user_flows.groupby(level=('mode','from_mode')).sum()
-    implicit_mode_benefit.insert(0,'benefit','Mode preference')
-    implicit_mode_benefit.set_index('benefit',append=True,inplace=True)
-    discounted_user_flows = discounted_user_flows.append(implicit_mode_benefit).sort_index()
+#     implicit_mode_benefit = user_benefit_flows - discounted_user_flows.groupby(level=('mode','from_mode')).sum()
+#     implicit_mode_benefit.insert(0,'benefit','Mode preference')
+#     implicit_mode_benefit.set_index('benefit',append=True,inplace=True)
+#     discounted_user_flows = discounted_user_flows.append(implicit_mode_benefit).sort_index()
 
-    external_benefit_list = [
-        'Air quality',
-        'Congestion',
-        'Greenhouse gas emissions',
-        'Health system costs',
-        'Noise',
-        'Road provision costs'
-        ]
-    for externality in external_benefit_list:
-        discounted_user_flows = discounted_user_flows.append(benefit_flows.xs(externality,level='benefit',drop_level=False))
-    discounted_user_flows.sort_index(inplace=True)
-    return discounted_user_flows
+#     external_benefit_list = [
+#         'Air quality',
+#         'Congestion',
+#         'Greenhouse gas emissions',
+#         'Health system costs',
+#         'Noise',
+#         'Road provision costs'
+#         ]
+#     for externality in external_benefit_list:
+#         discounted_user_flows = discounted_user_flows.append(benefit_flows.xs(externality,level='benefit',drop_level=False))
+#     discounted_user_flows.sort_index(inplace=True)
+#     return discounted_user_flows
 

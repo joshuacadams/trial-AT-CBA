@@ -10,11 +10,13 @@ import matplotlib.pyplot as plt
 import warnings
 import os
 from mdutils.mdutils import MdUtils
-
+import kaleido
 
 import inputs
+import outputs
 import streamlit_tables as stb
 import CBA
+import pdf_reports
 
 
 st.set_page_config(
@@ -23,19 +25,21 @@ st.set_page_config(
     )
     
 #Set the page max width
-st.markdown(
+def _max_width_():
+    max_width_str = f"max-width: 1000px;"
+    st.markdown(
         f"""
-<style>
-    .reportview-container .main .block-container{{
-        max-width: 1000px;
+    <style>
+    .appview-container .main .block-container{{
+        {max_width_str}
     }}
-</style>
-""",
+    </style>    
+    """,
         unsafe_allow_html=True,
     )
+_max_width_()
 
 st.title('Active Travel Cost-Benefit Analysis Tool')
-
 st.markdown((open('help_text/sample_intro.txt').read()))
 
 st.header('File')
@@ -49,13 +53,17 @@ with st.expander('Save or load projects'):
     if st.button('New Project'):
         st.session_state['uploaded_project'] = False
 
-    default_path_name = st.selectbox('Default parameters',os.listdir('defaults/'))
+    #Code for when there are multiple default files
+    # default_path_name = st.selectbox('Default parameters',os.listdir('defaults/'))
 
-    with open('saved_vars.csv') as file:
-        save_button = st.download_button(
-            label='Save Project',
-            data=file,
-            file_name = 'Active Travel Project.csv')
+    default_path_name = 'ATAP.csv'
+
+    if os.path.exists('saved_vars.csv'):
+        with open('saved_vars.csv') as file:
+            save_button = st.download_button(
+                label='Save Project',
+                data=file,
+                file_name = 'Active Travel Project.csv')
 
     uploaded_project = st.file_uploader('Upload Saved Project',type='csv')
     if uploaded_project is not None:
@@ -87,6 +95,7 @@ else:
         )
 
 inputs.default_parameters = inputs.default_parameters.astype({'value': 'float64'})
+
 
 inputs.sensitivities = pd.read_csv('names/sensitivity_test.csv')
 inputs.sensitivities = inputs.sensitivities.set_index(['sensitivity'])
@@ -130,6 +139,7 @@ with st.expander('Project Description',False):
     
     default_facility_name = inputs.default_parameters.loc['facility_name',np.NaN,np.NaN]['str_value']
     facility_name = st.text_input('Project Name',default_facility_name)
+    inputs.facility_name=facility_name
     inputs.saved_vars.loc['facility_name','str_value'] = facility_name
 
     #Read facility types from the index of relative risk
@@ -151,13 +161,16 @@ with st.expander('Project Description',False):
         index = existing_index,
         key = 'facility_type_existing_key'
         )
-
+    outputs.exported_inputs['Previous facility type'] = 'Existing type of infrastructure', facility_type_existing_text, None
+    
     facility_type_new_text = st.selectbox(
         'New facility type',
         list(facility_type_dict.keys()),
         index = new_index,
         key = 'facility_type_new_key'
         )
+
+    outputs.exported_inputs['New facility type'] = 'Type of infrastructure of project', facility_type_new_text, None
 
     stb.help_button('facility_type')
 
@@ -192,12 +205,12 @@ with st.expander('Project Cost',False):
     st.subheader('Real capital and operating costs by year')
     stb.help_button('costs')
 
-    cost_input_style = st.radio('Cost input method',('Table','Simple'))
+    cost_input_style = st.radio('Cost input method',('Simple','Table'))
 
     if cost_input_style == 'Simple':
         st.subheader('Capital cost')
         simple_capex = st.number_input('Total capital cost $',
-            value=0,
+            value=10000000,
             min_value=0,
             step=1)
         simple_capex_period = st.number_input('Years of construction',
@@ -207,7 +220,7 @@ with st.expander('Project Cost',False):
 
         st.subheader('Operating Cost')
         simple_opex = st.number_input('Annual operating cost $',
-            value=0,
+            value=100000,
             min_value=0,
             step=1)
         simple_opex_escalation = st.number_input('Real growth per year %',
@@ -232,8 +245,7 @@ with st.expander('Project Cost',False):
         fig3.update_layout(autosize=True,width=900, title='Costs by year')
         st.plotly_chart(fig3.update_traces(hovertemplate='$%{y:,.0f}'))
 
-
-    
+       
 
 
     if cost_input_style == 'Table':
@@ -275,6 +287,12 @@ with st.expander('Project Cost',False):
                     step=1, 
                     key = 'opex'+str(yr)
                     )
+    
+    df = inputs.costs.copy()
+    df = df.reset_index()
+    df = df.pivot(index='year',columns='cost')
+    df.rename(columns={'capital_cost':'Capital','operating_cost':'Operating'},inplace=True)
+    outputs.exported_inputs['Costs'] = 'Cost by type', df, '${:,.0f}'
 
 with st.expander('Intersection treatments',False):
 
@@ -307,6 +325,8 @@ with st.expander('Intersection treatments',False):
                     key='intersection'+para+str(i)
                     )
                 j=j+1
+    outputs.exported_inputs['Intersection treatments'] = 'Details of intersection treatments', inputs.intersection_inputs.copy(), None
+
     
     stb.help_button('intersection_treatments')
 
@@ -355,6 +375,7 @@ with st.expander('Demand',False):
         inputs.custom_demand = False
 
     basic_demand = demand_calcs.get_basic_demand_frame()
+
     
     st.header('Assumed demand by mode')
     fig = px.line(basic_demand.rename(columns={'value':'Daily Traffic'}).reset_index(), x='year',y='Daily Traffic', color = "mode")
@@ -375,7 +396,12 @@ with st.expander('Diversion',False):
     stb.help_button('demand_ramp_up')
     
     demand = demand_calcs.get_demand_frame(basic_demand)
-
+    df = demand.copy()
+    df = df.reset_index()
+    df = pd.pivot_table(df,'value',index='year',columns='mode',aggfunc='sum')
+    for column in df:
+        df[column] = df[column].map('{:,.0f}'.format)
+    outputs.exported_inputs['Assumed Demand'] = 'Project case demand (including demand ramp up)', df, '{:,.0f}'
 
 st.header('Trip Characteristics')
 
@@ -392,16 +418,18 @@ with st.expander('Trip Characteristics',False):
     inputs.surface_distance_prop_base = stb.number_table('surface_distance_prop_base',percent = True)
     inputs.surface_distance_prop_project = stb.number_table('surface_distance_prop_project',percent = True)
 
-    if inputs.default_parameters.loc['subtract_project_length',np.NaN,np.NaN]['str_value'] == "TRUE":
-        default_subtract_project_length = True
-    else:
-        default_subtract_project_length = False
-    inputs.subtract_project_length = st.checkbox(
-        'Apply infrastructure type proportions only to parts of the trip not on the project infrastructure',
-        value = default_subtract_project_length
-        )
-    inputs.saved_vars.loc['subtract_project_length','str_value'] = inputs.subtract_project_length
+    # if inputs.default_parameters.loc['subtract_project_length',np.NaN,np.NaN]['str_value'] == "TRUE":
+    #     default_subtract_project_length = True
+    # else:
+    #     default_subtract_project_length = False
+    # inputs.subtract_project_length = st.checkbox(
+    #     'Apply infrastructure type proportions only to parts of the trip not on the project infrastructure',
+    #     value = default_subtract_project_length
+    #     )
+    # inputs.saved_vars.loc['subtract_project_length','str_value'] = inputs.subtract_project_length
     
+    inputs.subtract_project_length = True
+
     stb.help_button('surface_distance_prop')
 
     st.markdown('''---''')
@@ -423,8 +451,8 @@ with st.expander('Mode attributes',False):
     inputs.speed_active = stb.number_table('speed_active')
     stb.help_button('speed_active')
 
-    inputs.speed_from_mode = stb.number_table('speed_from_mode')
-    stb.help_button('speed_from_mode')
+    # inputs.speed_from_mode = stb.number_table('speed_from_mode')
+    # stb.help_button('speed_from_mode')
 
 
 with st.expander('Unit Values',False):
@@ -438,25 +466,25 @@ with st.expander('Unit Values',False):
     stb.help_button('health_private')
 
     inputs.voc_active = stb.number_table('voc_active') 
-    inputs.voc_car = stb.number_table('voc_car')
-    stb.help_button('voc')
+    # inputs.voc_car = stb.number_table('voc_car')
+    # stb.help_button('voc')
 
     inputs.congestion_cost = stb.number_table('congestion_cost')
     stb.help_button('congestion_cost')
 
     inputs.crash_cost_active = stb.number_table('crash_cost_active') 
-    inputs.crash_cost_from_mode = stb.number_table('crash_cost_from_mode')
+    # inputs.crash_cost_from_mode = stb.number_table('crash_cost_from_mode')
     inputs.injury_cost = stb.number_table('injury_cost')
     stb.help_button('crash_cost')
 
     inputs.car_externalities = stb.number_table('car_externalities')
     stb.help_button('car_externalities')
 
-    inputs.road_provision = stb.number_table('road_provision')
-    stb.help_button('road_provision')
+    # inputs.road_provision = stb.number_table('road_provision')
+    # stb.help_button('road_provision')
 
-    inputs.parking_cost = stb.number_table('parking_cost')
-    stb.help_button('parking_cost')
+    # inputs.parking_cost = stb.number_table('parking_cost')
+    # stb.help_button('parking_cost')
 
 
 #Check if distance travelled on base and project case surfaces is at least as long as facility
@@ -497,195 +525,7 @@ with st.expander('Unit Values',False):
 #             )
 
 ###Append costs to saved vars
-
-
-
-
-###CBA Calculation
-
-benefits = CBA.calculate_benefits(demand)
-discounted_benefits = CBA.discount_benefits(benefits,inputs.discount_rate)
-discounted_costs = CBA.discount_costs(inputs.costs,inputs.discount_rate)
-inputs.results = CBA.calculate_results(discounted_benefits,discounted_costs)
-
-st.header('Results')
-with st.expander('Results',False):
-    st.header('Headline results')
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric('Net Present Value',value='$'+"{:,.0f}".format(inputs.results['NPV']))
-    col2.metric('Benefit Cost Ratio (BCR1)',value='{:,.2f}'.format(inputs.results['BCR1']))
-    col3.metric('Benefit Cost Ratio (BCR2)',value='{:,.2f}'.format(inputs.results['BCR2']))
-
-    stb.help_button('headline_results')
-
-    with open ('Results.pdf',"rb") as file:
-        st.download_button('PDF report',data=file,file_name='Results.pdf')
-
-    df = pd.DataFrame.from_dict(inputs.results, orient='index',columns=['value'])
-    df = df.append(discounted_benefits.groupby('benefit').sum())
-    df = df.append(discounted_costs.groupby('cost').sum())
-    df = df.rename(columns={'value':facility_name})
-    df.index.name = 'output'
-    results_export = df
-    results_name = facility_name+' CBA results.xlsx'
-    results_export.to_excel(results_name)
-
-    df = discounted_benefits.reset_index()
-
-    with pd.ExcelWriter(results_name,
-                    mode='a', engine = 'openpyxl') as writer:  
-        df.to_excel(writer, sheet_name='Discounted benefits pivot')
-
-    df = benefits.reset_index()
-
-    with pd.ExcelWriter(results_name,
-                    mode='a', engine = 'openpyxl') as writer:  
-        df.to_excel(writer, sheet_name='Un-discounted benefits pivot')    
-
-    def append_excel_results_sheet(df,sheet_name,rows,columns):
-        df = df.pivot_table(index=rows,columns=columns,values='value')
-        with pd.ExcelWriter(results_name,
-                        mode='a', engine = 'openpyxl') as writer:  
-            df.to_excel(writer, sheet_name=sheet_name)
-
-    append_excel_results_sheet(basic_demand.reset_index(),'Daily demand','mode','year')
-    append_excel_results_sheet(discounted_costs.reset_index(),'Discounted costs by type','cost','year')
-    append_excel_results_sheet(discounted_benefits,'Benefits by type','benefit','year')
-    append_excel_results_sheet(discounted_benefits,'Benefits by mode','mode','year')
-    append_excel_results_sheet(discounted_benefits,'Benefits by mode and diversion',['mode','from_mode'],'year')
-    append_excel_results_sheet(discounted_benefits,'Benefits by mode and type',['benefit','mode'],'year')
-
-
-
-    # df = discounted_benefits.pivot_table(index='benefit',columns='year',values='value')
-    # with pd.ExcelWriter(results_name,
-    #                 mode='a', engine = 'openpyxl') as writer:  
-    #     df.to_excel(writer, sheet_name='Benefits by year')
-
-    # df = discounted_benefits.pivot_table(index='mode',columns='year',values='value')
-
-    # with pd.ExcelWriter(results_name,
-    #                 mode='a', engine = 'openpyxl') as writer:  
-    #     df.to_excel(writer, sheet_name='Benefits by mode by year')
-
-    # df = discounted_benefits.pivot_table(index=['mode','from_mode'],columns='year',values='value')
-
-    # with pd.ExcelWriter(results_name,
-    #                 mode='a', engine = 'openpyxl') as writer:  
-    #     df.to_excel(writer, sheet_name='Benefits by mode and from mode by year')
-
-    with open (results_name,"rb") as file:
-        st.download_button('Excel spreadsheets',data=file,file_name=results_name)
-
-    # if st.button('Add to results.xls'):
-
-    #     if not os.path.isfile('results.xlsx'):
-    #         results_export.to_excel('results.xlsx')
-    #     else:
-    #         existing_file = pd.read_excel('results.xlsx')
-    #         existing_file.set_index('output',inplace=True)
-    #         if facility_name in existing_file.columns:
-    #             st.warning('There is already a column with the name '+facility_name)
-    #             if st.button('Overwrite!',key='overwrite button'):
-    #                 existing_file[facility_name] = results_export[facility_name].copy()
-    #                 existing_file.to_excel('results.xlsx')
-    #         else:
-    #             existing_file[facility_name] = results_export[facility_name].copy()
-    #             existing_file.to_excel('results.xlsx')
-
-    # with open(facility_name+' CBA results.xlsx','rb') as file:
-    #     results_download_button = st.download_button(
-    #         label='Download results',
-    #         data=file,
-    #         file_name = facility_name+' CBA results.xlsx')
-
-    st.header('Total discounted benefits')
-
-    # results_format = st.radio('Display results as',('charts','tables'))
-
-    # if results_format == 'charts':            
-
-    df = discounted_benefits.groupby('mode').sum()
-    fig1 = px.bar(df,y=df.index,x='value',orientation='h')
-    fig1.update_layout(autosize=True,width=900, title='Benefits by mode')
-    st.plotly_chart(fig1.update_traces(hovertemplate='$%{x:,.0f}'))
-
-    df = discounted_benefits.groupby('benefit').sum()
-    fig2 = px.bar(df,y=df.index,x='value',orientation='h')
-    fig2.update_layout(autosize=True,width=900, title='Benefits by benefit type')
-    st.plotly_chart(fig2.update_traces(hovertemplate='$%{x:,.0f}'))
-
-    df = discounted_benefits.groupby('year').sum()
-    fig3 = px.bar(df,y='value',x=df.index,orientation='v')
-    fig3.update_layout(autosize=True,width=900, title='Benefits by year')
-    st.plotly_chart(fig3.update_traces(hovertemplate='$%{y:,.0f}'))
-    
-    df = discounted_benefits.groupby(['benefit','mode']).sum().reset_index()
-    fig4 = px.bar(df,y='mode',x='value',color='benefit',orientation='h')
-    fig4.update_layout(autosize=True,width=900, title='Benefits by mode and benefit type')
-    st.plotly_chart(fig4.update_traces(hovertemplate='$%{x:,.0f}'))
-
-    # if results_format == 'tables':
-    #     st.markdown('Accessible tables will go here')
-
-# CURTIS - PRESENTATION CODE HERE
-
-
-#TODO Repair user flows calc and re-think presentation
-
-# user_flows = CBA.get_user_flows(demand, discounted_benefits)
-
-# with st.expander('Benefit flows',False):
-#     y = user_flows.groupby(['benefit']).sum()['value'].tolist()
-#     x = user_flows.groupby(['benefit']).sum().index.get_level_values(level=0)
-#     fig = go.Figure(go.Waterfall(y=y,x=x))
-#     fig.update_layout(autosize=True,width=900, height=900, title='Gains and losses')
-#     st.plotly_chart(fig)
-
-#     y = user_flows.groupby(['mode','benefit']).sum()['value'].tolist()
-#     x0 = user_flows.groupby(['mode','benefit']).sum().index.get_level_values(level=0)
-#     x1 = user_flows.groupby(['mode','benefit']).sum().index.get_level_values(level=1)
-#     x = [x0,x1]
-#     fig = go.Figure(go.Waterfall(y=y,x=x))
-#     fig.update_layout(autosize=True,width=900, height=900, title='Gains and losses by mode')
-#     st.plotly_chart(fig)
-
-#     y = user_flows.loc['Bicycle']['value'].tolist()
-#     x0 = user_flows.loc['Bicycle'].index.get_level_values(level=0)
-#     x1 = user_flows.loc['Bicycle'].index.get_level_values(level=1)
-#     x = [x0,x1]
-#     fig2 = go.Figure(go.Waterfall(y=y,x=x))
-#     fig2.update_layout(autosize=True,width=900, height=900, title='Gains and losses for Bicycle by diversion source')
-#     st.plotly_chart(fig2)
-
-
-
-with st.expander('Sensitivity testing',False):
-    
-    st.header('Sensitivity tests')
-    col1, col2, col3, col4 = st.columns(4)
-    col1.markdown('Sensitivity')
-    col2.markdown('NPV')
-    col3.markdown('BCR1')
-    col4.markdown('BCR2')
-
-    # col1.markdown('Central result')
-    # col2.markdown('$'+"{:,.2f}".format(results['NPV']))
-    # col3.markdown("{:.2f}".format(results['BCR1']))
-    # col4.markdown("{:.2f}".format(results['BCR2']))
-
-    # st.markdown('''---''')
-
-    stb.sensitivity_test('discount_rate',bounding_parameter=inputs.discount_rate,convert_to_decimal=False)
-    stb.sensitivity_test('capex_sensitivity')
-    stb.sensitivity_test('opex_sensitivity')
-    stb.sensitivity_test('demand_sensitivity')
-    stb.sensitivity_test('trip_distance_sensitivity')
-    stb.sensitivity_test('new_trips_sensitivity')
-    stb.sensitivity_test('transport_share_sensitivity',convert_to_decimal=False)
-
-# This should remain at the end of the program.
+# This should remain at the end of the inputs but before any results.
 # Whenever a streamlit input is updated, the entire program is re-run with 
 # streamlit remembering the new values. 
 # stb.number_input and other streamlit code copies the values of all inputs 
@@ -710,3 +550,180 @@ if inputs.number_of_intersections > 0:
 
 
 save_file.to_csv('saved_vars.csv')
+
+
+col1, col2, col3 = st.columns(3)
+
+calculate_results = col1.checkbox('Calculate results')
+
+if calculate_results:
+    calculate_sensitivities = col2.checkbox('Do sensitivity tests')
+
+    if calculate_sensitivities:
+        make_downloadables = col3.checkbox('Download results')
+
+
+    benefits = CBA.calculate_benefits(demand)
+    discounted_benefits = CBA.discount_benefits(benefits,inputs.discount_rate)
+    discounted_costs = CBA.discount_costs(inputs.costs,inputs.discount_rate)
+    outputs.results = CBA.calculate_results(discounted_benefits,discounted_costs)
+
+    outputs.results_dict = {
+        'Discounted Benefts':discounted_benefits,
+        'Discounted Costs':discounted_costs,
+        'Un-discounted Benefits':benefits,
+        'Un-discounted Costs':inputs.costs
+        }
+
+    outputs.headline_results = [
+        ['Present Value of Benefits','$'+"{:,.0f}".format(discounted_benefits.sum().sum())],
+        ['Present Value of Costs','$'+"{:,.0f}".format(discounted_costs.sum().sum())],
+        ['Net Present Value','$'+"{:,.0f}".format(outputs.results['NPV'])],
+        ['Benefit Cost Ratio (BCR1)','{:,.2f}'.format(outputs.results['BCR1'])],
+        ['Benefit Cost Ratio (BCR2)','{:,.2f}'.format(outputs.results['BCR2'])],
+    ]
+
+    st.header('Results')
+    with st.expander('Results',False):
+        st.header('Headline results')
+
+        cols = st.columns(3)
+        i = 0
+        for result in outputs.headline_results:
+            cols[i].metric(result[0],value=result[1])
+            i = i+1
+            if i == 3: i=0
+
+        stb.help_button('headline_results')
+
+        st.header('Breakdown')
+
+        results_format = st.radio('Display',('Charts','Tables'))
+
+        if results_format =='Charts':
+
+            col1,col2,col3 = st.columns(3)
+
+            df_select = col1.selectbox('Measure to chart',outputs.results_dict.keys())
+            df = outputs.results_dict[df_select]
+
+            chart_axis = col2.selectbox('Variable 1',df.index.names)
+            axis_list_2 = [None] + df.index.names.copy()
+            axis_list_2.remove(chart_axis)
+            chart_axis_2 = col3.selectbox('Variable 2',axis_list_2)
+
+            if chart_axis_2 is not None:
+                df = df.groupby([chart_axis,chart_axis_2]).sum().reset_index()
+                fig = px.bar(df,y=chart_axis,x='value',color=chart_axis_2,orientation='h')
+                fig.update_layout(autosize=True,width=900, title=df_select)
+                st.plotly_chart(fig.update_traces(hovertemplate='$%{x:,.0f}'))
+            else:
+                df = df.groupby(chart_axis).sum()
+                fig = px.bar(df,y=df.index,x='value',orientation='h')
+                fig.update_layout(autosize=True,width=900, title=df_select)
+                st.plotly_chart(fig.update_traces(hovertemplate='$%{x:,.0f}'))
+            
+            fig.write_image('Custom chart.svg')
+            with open('Custom chart.svg','rb') as file:
+                results_download_button = st.download_button(
+                    label='Download chart',
+                    data=file,
+                    file_name = 'Custom chart.svg')
+            
+        if results_format =='Tables':
+
+
+            col1,col2,col3 = st.columns(3)
+            df_select = col1.selectbox('Measure to chart',outputs.results_dict.keys())
+            df = outputs.results_dict[df_select]
+            table_vars = df.index.names.copy()
+
+            col2.text('Rows')
+            rows = []
+            for var in table_vars:
+                row = col2.checkbox(var,key=var+'rowkey')
+                if row:
+                    rows.append(var)
+            
+            col3.text('Columns')
+            column_vars = [x for x in table_vars if x not in rows]
+            columns = []
+            for var in column_vars:
+                column = col3.checkbox(var,key=var+'columnkey')
+                if column:
+                    columns.append(var)
+            
+            try:
+                df = pd.pivot_table(df,values='value',index=rows,columns=columns,aggfunc='sum',fill_value=0)
+            except:
+                df = pd.DataFrame(df.sum())
+                df.rename(columns={0:'value'},inplace=True)
+            df = df.style.format('${:,.0f}')
+            df
+
+            with pd.ExcelWriter('Custom table.xlsx') as writer:
+                df.to_excel(writer,sheet_name='Custom table')
+
+            with open('Custom table.xlsx','rb') as file:
+                results_download_button = st.download_button(
+                    label='Download table (Excel)',
+                    data=file,
+                    file_name = 'Custom table.xlsx')
+            
+
+    if calculate_sensitivities:
+        with st.expander('Sensitivity testing',False):
+            
+            st.header('Sensitivity tests')
+            col1, col2, col3, col4 = st.columns(4)
+            col1.markdown('Sensitivity')
+            col2.markdown('NPV')
+            col3.markdown('BCR1')
+            col4.markdown('BCR2')
+
+            stb.sensitivity_test('discount_rate',bounding_parameter=inputs.discount_rate,convert_to_decimal=False)
+            stb.sensitivity_test('capex_sensitivity')
+            stb.sensitivity_test('opex_sensitivity')
+            stb.sensitivity_test('demand_sensitivity')
+            stb.sensitivity_test('trip_distance_sensitivity')
+            stb.sensitivity_test('new_trips_sensitivity')
+            stb.sensitivity_test('transport_share_sensitivity',convert_to_decimal=False)
+
+            (outputs.exported_sensitivities).set_index('Sensitivity',inplace=True)
+
+            
+
+
+        if make_downloadables:
+
+            excel_tables = {}
+
+            df = pd.DataFrame.from_dict(outputs.results, orient='index',columns=['value'])
+            df = df.append(discounted_benefits.groupby('benefit').sum())
+            df = df.append(discounted_costs.groupby('cost').sum())
+            df = df.rename(columns={'value':facility_name})
+            df.index.name = 'output'
+            excel_tables['Headline results'] = df
+
+            excel_tables['Discounted Benefits'] = discounted_benefits.reset_index()
+            excel_tables['Discounted Costs'] = discounted_costs.reset_index()
+            excel_tables['Undiscounted Benefits'] = benefits.reset_index()
+            excel_tables['Undiscounted Costs'] = inputs.costs.reset_index()
+
+            with pd.ExcelWriter(facility_name+' CBA results.xlsx') as writer:
+                for sheet in excel_tables:
+                    excel_tables[sheet].to_excel(writer,sheet_name=sheet)
+
+            with open(facility_name+' CBA results.xlsx','rb') as file:
+                results_download_button = st.download_button(
+                    label='Download results (Excel)',
+                    data=file,
+                    file_name = facility_name+' CBA results.xlsx')
+            
+            pdf_reports.write_pdf()
+
+            with open(inputs.facility_name+' Cost-Benefit-Analysis.pdf','rb') as file:
+                results_download_button = st.download_button(
+                    label='Download results (PDF)',
+                    data=file,
+                    file_name = inputs.facility_name+' Cost-Benefit-Analysis.pdf')

@@ -4,6 +4,7 @@ import pandas as pd
 default_parameters = pd.DataFrame()
 parameter_list = pd.DataFrame()
 
+facility_name=''
 discount_rate = 0
 appraisal_period = 0
 base_year = 0
@@ -55,4 +56,3 @@ subtract_project_length = False
 
 saved_vars = pd.DataFrame()
 
-results = ""

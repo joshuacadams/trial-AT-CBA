@@ -1,6 +1,6 @@
 ### Motor vehicle externalities
 
-Motor vehicle travel imposes negative externalities on society. These externalities generally include health and environmental costs from emissions, congestion costs and amenity costs such as noise pollution. Externality costs are typically not included in market prices or the perceived cost of motor vehicle trips. 
+Motor vehicle travel imposes negative externalities on society, including health and environmental costs from emissions, congestion costs and amenity costs such as noise pollution. Externality costs are typically not included in market prices or the perceived cost of motor vehicle trips. 
 
 Benefits associated with reduced externality costs are estimated for new active travel trips that switch from cars in the base case using per kilometre unit values.
 

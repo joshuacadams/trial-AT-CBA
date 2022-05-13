@@ -1,8 +1,12 @@
 import numpy as np
 import pandas as pd
-import inputs
 import streamlit as st
+
+import inputs
+import outputs
 import CBA
+
+
 
 inputs.saved_vars = pd.DataFrame(columns=['parameter','dimension_0','dimension_1','name_0','name_1','value'])
 inputs.saved_vars.set_index(['parameter','dimension_0','dimension_1'],inplace=True)
@@ -57,7 +61,7 @@ def single_input(parameter, percent=False):
     inputs.saved_vars.loc[parameter,'name_0'] = text
 
 
-    return widget
+    return widget, head , subhead, paraformat
 
 def column_input(parameter, percent=False):
     defaults = inputs.default_parameters.loc[parameter].reset_index(level=1, drop=True)
@@ -115,7 +119,7 @@ def column_input(parameter, percent=False):
     if percent==True and round(widget['value'].sum(axis=0),2)!=100:
         st.error("Total must equal 100%, \n Currently " + str(widget['value'].sum(axis=0))+'%')
     
-    return widget
+    return widget, head, subhead, paraformat
 
 def table_input(parameter, percent=False):
     defaults = inputs.default_parameters.loc[parameter]
@@ -166,19 +170,31 @@ def table_input(parameter, percent=False):
         if percent==True and round(widget.loc[(column)].value.sum(axis=0),2)!=100:
             col[n].error("Total must equal 100%, \n Currently " + str((widget.loc[(column)].value.sum(axis=0)))+'%')
         n=n+1
-    return widget
+    return widget, head, subhead, paraformat
        
 
 def number_table(parameter, percent=False):
     """Return a Pandas DataFrame shaped to match the defaults .csv which is set equal to a streamlit
-    number input element."""
+    number input element. Also append the DataFrame to exported_inputs"""
+
+    parafarmat_dict={
+        "%.0f":'{:.0f}',
+        "%.3f":'{:.3f}',
+        "%.2f":'{:.2f}',
+        "%.1f":'{:.1f}',
+    }
 
     if parameter_dimensions(parameter)==0:
-        df = single_input(parameter, percent)
+        df, name, description, paraformat = single_input(parameter, percent)
+        outputs.exported_inputs[name] = description, df, parafarmat_dict[paraformat]
+
     if parameter_dimensions(parameter)==1:
-        df = column_input(parameter, percent)
+        df, name, description, paraformat = column_input(parameter, percent)
+        outputs.exported_inputs[name] = description, df, parafarmat_dict[paraformat]
+
     if parameter_dimensions(parameter)==2:
-        df = table_input(parameter, percent)
+        df, name, description, paraformat = table_input(parameter, percent)
+        outputs.exported_inputs[name] = description, df.unstack(), parafarmat_dict[paraformat]
     return df
 
 def help_button(parameter):
@@ -203,7 +219,7 @@ def sensitivity_test(sensitivity,bounding_parameter=None,convert_to_decimal=True
         down_max = bounding_parameter
 
     cols[0].markdown("")
-    sens_up= cols[0].number_input(
+    sens_up_input= cols[0].number_input(
         min_value=up_min,
         max_value=defaults['up_max'],
         value=defaults['up_default'],
@@ -213,36 +229,41 @@ def sensitivity_test(sensitivity,bounding_parameter=None,convert_to_decimal=True
         format = "%.0f"
         )
     if convert_to_decimal == True:
-        sens_up = sens_up/100 + 1
+        sens_up = sens_up_input/100 + 1
+    else:
+        sens_up = sens_up_input
     sens_up_results = CBA.do_sensitivity_CBA(**{sensitivity: sens_up})
-    
-    # cols[1].markdown('NPV')
-    # cols[2].markdown('BCR1')
-    # cols[3].markdown('BCR2')
+    df = pd.DataFrame([sens_up_results])
+    df.insert(0,'Sensitivity',defaults['up_name'][:-1]+'('+str(sens_up_input)+'%)')
+
+    df['NPV'] = df['NPV'].map('${:,.0f}'.format)
+    df['BCR1'] = df['BCR1'].map("{:,.2f}".format)
+    df['BCR2'] = df['BCR2'].map("{:,.2f}".format)
+
+    outputs.exported_sensitivities = pd.concat([outputs.exported_sensitivities,df])
+
     for i in range(1,4):
         cols[i].markdown("")
-    # cols[1].markdown("$""{:,.2f}".format(sens_up_results['NPV']))
-    # cols[2].markdown("{:.2f}".format(sens_up_results['BCR1']))
-    # cols[3].markdown("{:.2f}".format(sens_up_results['BCR2']))
 
     cols[1].metric(
         'Net Present Value',
         value='$'+"{:,.0f}".format(sens_up_results['NPV']),
-        delta= "{:,.0f}".format(sens_up_results['NPV']-inputs.results['NPV'])
+        delta= "{:,.0f}".format(sens_up_results['NPV']-outputs.results['NPV'])
         )
     cols[2].metric(
         'Benefit Cost Ratio (BCR1)',
         value='{:,.2f}'.format(sens_up_results['BCR1']),
-        delta='{:,.2f}'.format(sens_up_results['BCR1']-inputs.results['BCR1'])
+        delta='{:,.2f}'.format(sens_up_results['BCR1']-outputs.results['BCR1'])
         )
     cols[3].metric(
         'Benefit Cost Ratio (BCR2)',
         value='{:,.2f}'.format(sens_up_results['BCR2']),
-        delta='{:,.2f}'.format(sens_up_results['BCR2']-inputs.results['BCR1'])
+        delta='{:,.2f}'.format(sens_up_results['BCR2']-outputs.results['BCR1'])
         )
+    
 
     cols[0].markdown("")
-    sens_down= cols[0].number_input(
+    sens_down_input= cols[0].number_input(
         min_value=defaults['down_min'],
         max_value=down_max,
         value=defaults['down_default'],
@@ -252,29 +273,35 @@ def sensitivity_test(sensitivity,bounding_parameter=None,convert_to_decimal=True
         format = "%.0f"
         )
     if convert_to_decimal == True:
-        sens_down = sens_down/100 + 1
+        sens_down = sens_down_input/100 + 1
+    else:
+        sens_down = sens_down_input
     sens_down_results = CBA.do_sensitivity_CBA(**{sensitivity: sens_down})
-    # for i in range(1,4):
-    #     cols[i].markdown("")
-    #     cols[i].markdown("")
-    # cols[1].markdown("$""{:,.2f}".format(sens_down_results['NPV']))
-    # cols[2].markdown("{:.2f}".format(sens_down_results['BCR1']))
-    # cols[3].markdown("{:.2f}".format(sens_down_results['BCR2']))
+    
+    df = pd.DataFrame([sens_down_results])
+    df.insert(0,'Sensitivity',defaults['down_name'][:-1]+'('+str(sens_down_input)+'%)')
+
+    df['NPV'] = df['NPV'].map('${:,.0f}'.format)
+    df['BCR1'] = df['BCR1'].map("{:,.2f}".format)
+    df['BCR2'] = df['BCR2'].map("{:,.2f}".format)
+
+    outputs.exported_sensitivities = pd.concat([outputs.exported_sensitivities,df])
+
 
     cols[1].metric(
         'Net Present Value',
         value='$'+"{:,.0f}".format(sens_down_results['NPV']),
-        delta= "{:,.0f}".format(sens_down_results['NPV']-inputs.results['NPV'])
+        delta= "{:,.0f}".format(sens_down_results['NPV']-outputs.results['NPV'])
         )
     cols[2].metric(
         'Benefit Cost Ratio (BCR1)',
         value='{:,.2f}'.format(sens_down_results['BCR1']),
-        delta='{:,.2f}'.format(sens_down_results['BCR1']-inputs.results['BCR1'])
+        delta='{:,.2f}'.format(sens_down_results['BCR1']-outputs.results['BCR1'])
         )
     cols[3].metric(
         'Benefit Cost Ratio (BCR2)',
         value='{:,.2f}'.format(sens_down_results['BCR2']),
-        delta='{:,.2f}'.format(sens_down_results['BCR2']-inputs.results['BCR1'])
+        delta='{:,.2f}'.format(sens_down_results['BCR2']-outputs.results['BCR1'])
         )
 
     st.markdown('''---''')

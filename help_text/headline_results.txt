@@ -1,8 +1,8 @@
 ### Net Present Value
 
-The net present value (NPV) of an initiative is the difference between the discounted stream of benefits and the discounted stream of costs.
+The net present value (NPV) of an initiative is the difference between the discounted stream of benefits and the discounted stream of costs .
 
-A positive NPV means that the initiative represents a Kaldor-Hicks improvement compared with the Base Case.
+A positive NPV means that the initiative's benefits are larger than its costs (NPV =  PV Benefits - PV Costs). 
 
 ### Benefit-Cost Ratio
 

@@ -6,4 +6,4 @@ Average effective speed inputs are critical as changes in travel time are calcul
  
 Benefits are calculated for active travel trips based on reduced travel times using value of travel time unit values. 
 
-See: ATAP M4 - Active Travel (2021), section 6.6.
+See: ATAP M4 - Active Travel (forthcoming - 2022), section 6.6.

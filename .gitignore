@@ -1,0 +1,7 @@
+__pycache__/
+*.xlsx
+*.svg
+*.png
+*.pdf
+*.bat
+.vscode/

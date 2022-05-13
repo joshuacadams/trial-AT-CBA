@@ -1,7 +1,7 @@
 ### Health system costs
 
-Active transport initiatives that increase active travel users will reduce health system costs because active travellers tend to be healthier and place less demand on the health system for diagnosis, treatment and recovery. 
+The physical activity associated with active travel reduces the the burden on health systems because active travellers tend to be healthier. 
 
 Health system benefits are calculated for new active travel trips based on trip length and the per kilometre unit value.
 
-Default unit value source: ATAP M4 - Active Travel (2021), section 6.7.
+Source: ATAP M4 - Active Travel (forthcoming - 2022), section 6.7.

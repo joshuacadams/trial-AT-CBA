@@ -6,4 +6,4 @@ For projects where use is largely expected to be for transport purposes, transpo
  
 Travel time savings are calculated only for transport trips based on time savings per trip and the value of travel time unit values.
 
-See: ATAP M4 - Active Travel (2021), section 6.6.2
+See: ATAP M4 - Active Travel (forthcoming - 2022), section 6.6.2.

@@ -10,4 +10,4 @@ For distance-based calculations, per kilometre crash cost values for each transp
 
 For intersection treatments, the average cost of fatalities and serious injuries are used to estimate safety benefits based on the expected reduction in fatalities and serious injuries attributable to the project.
 
-See: ATAP M4 - Active Travel (2021), section 6.5.
+See: ATAP M4 - Active Travel (forthcoming - 2022), section 6.5.

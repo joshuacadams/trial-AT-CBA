@@ -6,4 +6,3 @@ seaborn
 matplotlib
 inputs
 openpyxl
-mdutils
