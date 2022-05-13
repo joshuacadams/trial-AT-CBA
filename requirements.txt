@@ -1,4 +1,3 @@
-asdict
 streamlit
 numpy
 pandas
