@@ -236,6 +236,8 @@ def sensitivity_test(sensitivity,bounding_parameter=None,convert_to_decimal=True
     df = pd.DataFrame([sens_up_results])
     df.insert(0,'Sensitivity',defaults['up_name'][:-1]+'('+str(sens_up_input)+'%)')
 
+    outputs.exported_sensitivities_table = pd.concat([outputs.exported_sensitivities_table,df])
+
     df['NPV'] = df['NPV'].map('${:,.0f}'.format)
     df['BCR1'] = df['BCR1'].map("{:,.2f}".format)
     df['BCR2'] = df['BCR2'].map("{:,.2f}".format)

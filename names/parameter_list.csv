@@ -16,10 +16,10 @@ trip_distance,Total trip distances,Average trip distances (including travel off 
 transport_share,Transport share of trips,Proportion of trips for transport purposes,0,100,1,mode,
 surface_distance_prop_base,Surrounding infrastructure type (base case),Proportion of trip distance by surface (other than on the project),0,100,1,surface,
 surface_distance_prop_project,Surrounding infrastructure type (project case),Proportion of trip distance by surface (other than on the project),0,100,1,surface,
-trip_distance_change,Change in distances,"Change in trip distances caused by the project (e.g.  For missing links, bridges or other re-routing)",-5,5,0.1,mode,
+trip_distance_change,Change in distances,"Change in trip distances caused by the project (e.g.  For missing links, bridges or other re-routing)",-50,50,0.1,mode,
 speed_active,Average speed for active modes by facility type,Average effective speed (including stopping at intersections),0,100,1,mode,surface
 speed_from_mode,Average speed for other modes,Average effective speed including stopping and alighting time,0,100,1,from_mode,
-time_saving,Travel time saving from intersection treatments,Average time in seconds per trip. (Do not include time saving from distance changes or changes in surface type),-240,240,1,mode,
+time_saving,Travel time saving from intersection treatments,Average time in seconds per trip.,-240,240,1,mode,
 relative_risk,Relative risk,Relative risk compared to on-road (on-road = 1),0,3,0.01,mode,surface
 vott,Value of travel time,Valuation of travel time per hour,0,100,0.01,,
 health_system,Health system costs,Healthcare cost avoided per km ($),0,10,0.01,mode,

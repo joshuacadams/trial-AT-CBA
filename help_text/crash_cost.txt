@@ -10,4 +10,6 @@ For distance-based calculations, per kilometre crash cost values for each transp
 
 For intersection treatments, the average cost of fatalities and serious injuries are used to estimate safety benefits based on the expected reduction in fatalities and serious injuries attributable to the project.
 
+Default crash costs for e-scooters and e-bikes are based on the ATAP values for bicycles.
+
 See: ATAP M4 - Active Travel (forthcoming - 2022), section 6.5.

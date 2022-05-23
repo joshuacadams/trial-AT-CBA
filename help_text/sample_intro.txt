@@ -1,4 +1,4 @@
-Welcome to the Active Travel Cost Benefit Analysis Tool developed by The Department of Transport and Main Roads, Queensland. This tool aims to assist with conducting rapid cost-benefit analysis consistent with the Australian Transport Assessment and Planning (ATAP) Guidelines (M4 Active Travel).
+Welcome to the Active Travel Economic Appraisal Tool developed by The Department of Transport and Main Roads, Queensland. This tool aims to assist with conducting rapid cost-benefit analysis consistent with the Australian Transport Assessment and Planning (ATAP) Guidelines (M4 Active Travel).
 
 Default parameter values used to calculate benefits are sourced primarily from the ATAP guidelines and indexed to 2021 $AUD. 
 

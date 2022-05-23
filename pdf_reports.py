@@ -112,9 +112,11 @@ class MyPdfDocument(pdfdocument.document.PDFDocument):
 
     
     
-    def together_table(self,heading,dataframe,style=ts,format='{:,.2f}',column_names=None):
+    def together_table(self,heading,dataframe,style=ts,format='{:,.2f}',column_names=None,big_head=None):
         self.this_table = [reportlab.platypus.Spacer(1,0)]
         global table_count
+        if big_head is not None:
+            self.this_table.append(reportlab.platypus.Paragraph(big_head, self.style.summary))
         text = "Table "+str(table_count)+": "+heading
         self.inputs = input
         self.this_table.append(reportlab.platypus.Paragraph(text, self.style.table))
@@ -137,6 +139,11 @@ class MyPdfDocument(pdfdocument.document.PDFDocument):
         resulttext = inputs.facility_name+' Cost-Benefit-Analysis'
         self.story.append(reportlab.platypus.Paragraph(resulttext, self.style.normal))
         self.story.append(reportlab.platypus.Spacer(1,0.3125*reportlab.lib.units.inch))
+        
+        global table_count
+        table_count = 1
+        global chart_count
+        chart_count = 1
 
 
         resulttext = "Outputs"         
@@ -155,7 +162,6 @@ class MyPdfDocument(pdfdocument.document.PDFDocument):
         self.story.append(table)
         self.story.append(reportlab.platypus.Spacer(1,0.3125*reportlab.lib.units.inch))
         
-        global table_count
         table_count = table_count +1
         # # Present value tables
 
@@ -242,11 +248,11 @@ class MyPdfDocument(pdfdocument.document.PDFDocument):
         paras = outputs.exported_inputs.copy()
 
         for para in paras:
-            resulttext = para
-            self.story.append(reportlab.platypus.Paragraph(resulttext, self.style.summary))
             if type(paras[para][1]) == pd.core.frame.DataFrame:
-                self.together_table(paras[para][0],paras[para][1],format=paras[para][2])
+                self.together_table(paras[para][0],paras[para][1],format=paras[para][2],big_head=para)
             else:
+                resulttext = para
+                self.story.append(reportlab.platypus.Paragraph(resulttext, self.style.summary))
                 text = paras[para][0]
                 self.story.append(reportlab.platypus.Paragraph(text, self.style.table))
                 try:

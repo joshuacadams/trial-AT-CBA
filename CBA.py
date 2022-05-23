@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from sqlalchemy import intersect
 import streamlit as st
 import inputs
 import demand_calcs
@@ -179,24 +180,31 @@ def calculate_benefits(demand, trip_distance_sensitivity=1, transport_share_sens
     benefits = write_to_benefit_table(voc_cost_benefits,'Vehicle operating costs',benefits)
 
     #Intersection safety
-    intersection_safety =[]
-    for i in list(range(inputs.number_of_intersections)):
-        paras = inputs.intersection_inputs.loc[i]
+    if inputs.number_of_intersections>0:
+        intersection_safety =[]
+
         
-        intersection_safety.append(
-            (
-                paras.loc['Expected 10-year fatalities','value']
-                *inputs.injury_cost.loc['Fatality','value']
-                +paras.loc['Expected 10-year injuries','value']
-                *inputs.injury_cost.loc['Serious Injury','value']
-                )
-            *paras.loc['Risk reduction %','value']
-            /100
-        )
-    intersection_safety = sum(intersection_safety)/10
-    intersection_safety = intersection_safety/demand.groupby('year').sum()
-    intersection_safety = intersection_safety*demand*rule_of_a_half
-    benefits = write_to_benefit_table(intersection_safety,'Intersection safety',benefits)
+        for i in list(range(inputs.number_of_intersections)):
+            paras = inputs.intersection_inputs.loc[i]
+
+            
+            
+            intersection_safety.append(
+                (
+                    paras.loc['Expected 10-year fatalities (base case)','value']
+                    *inputs.injury_cost.loc['Fatality','value']
+                    +paras.loc['Expected 10-year injuries (base case)','value']
+                    *inputs.injury_cost.loc['Serious Injury','value']
+                    )
+                *paras.loc['Risk reduction % (project case)','value']
+                /100
+            )
+        
+        intersection_safety = (sum(intersection_safety)/10).values[0]
+        intersection_safety = intersection_safety/demand.groupby('year').sum()
+        intersection_safety = intersection_safety*demand*rule_of_a_half
+
+        benefits = write_to_benefit_table(intersection_safety,'Intersection safety',benefits)
 
     ### Health system benefits (unpercieved)
 
@@ -339,6 +347,7 @@ def do_sensitivity_CBA(demand_sensitivity=1, trip_distance_sensitivity=1, transp
         )
 
     return res
+
 
 # def get_user_flows(demand, discounted_benefits):
 #     """Returns breakdown of total benefits from CBA results. Perceived benefits are calculated compared to the base case mode

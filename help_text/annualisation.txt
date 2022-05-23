@@ -4,7 +4,7 @@ The annualisation factor converts daily demand estimates to annual demand to cal
 
 It is important that the annualisation factor and demand assumptions are aligned.
 
-By default, demand is input for an average week, so the annualisation factor is 53.
+By default, demand is input for an average week, so the annualisation factor is 52.
 
 If demand is a daily average, an annualisation factor of 365 would be appropriate.
 

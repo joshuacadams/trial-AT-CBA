@@ -4,16 +4,18 @@ import inputs
 
 def get_basic_demand_frame(demand_sensitivity=1):
     """Returns demand by mode based on inputs from inputs.py"""
-    growth_factors = pd.DataFrame(index =pd.MultiIndex.from_product([inputs.demand_growth.index.tolist(),inputs.year],names=['mode','year'])) 
-    n=0
-    for thisyear in inputs.year:
-        if thisyear < inputs.opening_year:
-            for thismode in inputs.demand_growth.index.tolist():
-                growth_factors.loc[(thismode,thisyear),'value'] = 0 #No demand in years before opening year
-        else:
-            for thismode in inputs.demand_growth.index.tolist():
-                growth_factors.loc[(thismode,thisyear),'value'] = (1 + inputs.demand_growth.loc[thismode,'value']/100)**n #Growth factor is base^years
-            n=n+1
+    
+    if inputs.custom_demand == False:
+        growth_factors = pd.DataFrame(index =pd.MultiIndex.from_product([inputs.demand_growth.index.tolist(),inputs.year],names=['mode','year'])) 
+        n=0
+        for thisyear in inputs.year:
+            if thisyear < inputs.opening_year:
+                for thismode in inputs.demand_growth.index.tolist():
+                    growth_factors.loc[(thismode,thisyear),'value'] = 0 #No demand in years before opening year
+            else:
+                for thismode in inputs.demand_growth.index.tolist():
+                    growth_factors.loc[(thismode,thisyear),'value'] = (1 + inputs.demand_growth.loc[thismode,'value']/100)**n #Growth factor is base^years
+                n=n+1
 
  
     if inputs.custom_demand == True:
@@ -56,7 +58,8 @@ def get_demand_frame(basic_demand, new_trips_sensitivity=1):
             if from_mode != 'Reassign':
                 for yr in ramp_up_years:
                     #Multiply demand by how far throguh ramp up years this year is (1/5, 2/5, 3/5, 4/5)
-                    demand.loc[(mode,from_mode,yr),'value'] = demand.loc[(mode,from_mode,yr),'value']*((yr-inputs.opening_year+1)/inputs.demand_ramp_up)
+                    demand.loc[(mode,from_mode,yr),'value'] = (demand.loc[(mode,from_mode,yr),'value']*
+                    ((yr-inputs.opening_year+1)/inputs.demand_ramp_up))
 
     return demand
 

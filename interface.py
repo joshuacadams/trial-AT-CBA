@@ -20,7 +20,7 @@ import pdf_reports
 
 
 st.set_page_config(
-    page_title = "Active Transport CBA Tool",
+    page_title = "Active Travel Economic Appraisal Tool",
     page_icon = "🚴"
     )
     
@@ -39,7 +39,7 @@ def _max_width_():
     )
 _max_width_()
 
-st.title('Active Travel Cost-Benefit Analysis Tool')
+st.title("Active Travel Economic Appraisal Tool")
 st.markdown((open('help_text/sample_intro.txt').read()))
 
 st.header('File')
@@ -296,11 +296,13 @@ with st.expander('Project Cost',False):
 
 with st.expander('Intersection treatments',False):
 
-   
+
     inputs.number_of_intersections = stb.number_table('number_of_intersections')
     inputs.number_of_intersections = int(inputs.number_of_intersections)
+    if 'Intersection treatments' in outputs.exported_inputs.keys():
+        del(outputs.exported_inputs['Intersection treatments'])
     if inputs.number_of_intersections > 0:
-        intersection_parameters = ['Expected 10-year fatalities','Expected 10-year injuries','Risk reduction %']
+        intersection_parameters = ['Expected 10-year fatalities (base case)','Expected 10-year injuries (base case)','Risk reduction % (project case)']
         #Need to re-initialise dataframe to change the index each streamlit run
         inputs.intersection_inputs = 0
         inputs.intersection_inputs = pd.DataFrame()
@@ -325,7 +327,15 @@ with st.expander('Intersection treatments',False):
                     key='intersection'+para+str(i)
                     )
                 j=j+1
-    outputs.exported_inputs['Intersection treatments'] = 'Details of intersection treatments', inputs.intersection_inputs.copy(), None
+    if inputs.number_of_intersections > 0:
+        for intersection in range(inputs.number_of_intersections):
+            outputs.exported_inputs['Intersection treatment '+str(intersection+1)] = (
+                'Details of intersection treatment '+str(intersection+1),
+                inputs.intersection_inputs.loc[intersection],
+                '{:.1f}'
+            )
+
+    
 
     
     stb.help_button('intersection_treatments')
@@ -334,50 +344,65 @@ st.header('Demand Details')
 
 import demand_calcs
 with st.expander('Demand',False):
-    
-    inputs.base_year_demand = stb.number_table('base_year_demand')
-    stb.help_button('base_year_demand')
-
-    inputs.demand_growth = stb.number_table('demand_growth')
-    stb.help_button('demand_growth')
 
 
-    st.header('Customise demand inputs')
-    
-    blank_demand = pd.DataFrame(0,columns=inputs.base_year_demand.index.tolist(),index=inputs.year)
-    blank_demand.index.name = 'year'
-    filename = 'demand.csv'
-    blank_demand_csv = blank_demand.to_csv(encoding='utf-8', index=True, header=True)
-    st.download_button(
-        label='Download template demand table',
-        data = blank_demand_csv,
-        mime='text/csv',
-        file_name = 'demand.csv')
-    uploaded_demand_csv = st.file_uploader('Click here to upload your completed demand table',type='csv')
 
+    demand_input_style = st.radio('Demand input method',['Simple','Upload'])
 
-    if uploaded_demand_csv is not None:
-        raw_uploaded_demand = pd.read_csv(uploaded_demand_csv)
-        raw_uploaded_demand.set_index('year', inplace=True)
-        raw_uploaded_demand.index.name = 'year'
-        st.dataframe(raw_uploaded_demand)
-        if raw_uploaded_demand.columns.tolist() != blank_demand.columns.tolist():
-            st.error('The rows in the uploaded demand table do not match the template')
-        elif raw_uploaded_demand.columns.tolist() != blank_demand.columns.tolist():
-            st.error('The columns in the uploaded demand table do not match the template')
-        elif raw_uploaded_demand.dtypes.tolist() != blank_demand.dtypes.tolist():
-            st.error('There are unexpected characters in the uploaded demand table. Only numbers should be entered.')
-        else:
-            inputs.custom_demand = True
-            st.markdown('✔️ You have succesfully uploaded a demand table. Delete the table to re-enable the number inputs above')
-            inputs.uploaded_demand = raw_uploaded_demand.melt(var_name='mode',ignore_index=False).set_index('mode',append=True).swaplevel(i='year',j='mode').sort_index()
-    else:
+    if demand_input_style == 'Simple':
+        
+        inputs.base_year_demand = stb.number_table('base_year_demand')
+        stb.help_button('base_year_demand')
+
+        inputs.demand_growth = stb.number_table('demand_growth')
+        stb.help_button('demand_growth')
+
         inputs.custom_demand = False
 
-    basic_demand = demand_calcs.get_basic_demand_frame()
+   
+    else:
+        st.header('Customise demand inputs')
+        inputs.custom_demand = True
+
+        simple_demand_keys = ['Opening year demand','Demand growth']
+        for key in simple_demand_keys:
+            if key in outputs.exported_inputs.keys():
+                del(outputs.exported_inputs[key])
+
+        demand_modes = inputs.default_parameters.loc['base_year_demand']['name_0'].tolist()
+        
+        blank_demand = pd.DataFrame(0,columns=demand_modes,index=inputs.year)
+        blank_demand.index.name = 'year'
+        filename = 'demand.csv'
+        blank_demand_csv = blank_demand.to_csv(encoding='utf-8', index=True, header=True)
+        st.download_button(
+            label='Download template demand table',
+            data = blank_demand_csv,
+            mime='text/csv',
+            file_name = 'demand.csv')
+        uploaded_demand_csv = st.file_uploader('Click here to upload your completed demand table',type='csv')
+
+        if uploaded_demand_csv is not None:
+            raw_uploaded_demand = pd.read_csv(uploaded_demand_csv)
+            raw_uploaded_demand.set_index('year', inplace=True)
+            raw_uploaded_demand.index.name = 'year'
+            if raw_uploaded_demand.columns.tolist() != blank_demand.columns.tolist():
+                st.error('The rows in the uploaded demand table do not match the template')
+            elif raw_uploaded_demand.index.tolist() != blank_demand.index.tolist():
+                st.error('The columns in the uploaded demand table do not match the template')
+            elif raw_uploaded_demand.dtypes.tolist() != blank_demand.dtypes.tolist():
+                st.error('There are unexpected characters in the uploaded demand table. Only numbers should be entered.')
+            else:
+                
+                st.markdown('✔️ You have succesfully uploaded a demand table. Delete the table to re-enable the number inputs above')
+                inputs.uploaded_demand = raw_uploaded_demand.melt(var_name='mode',ignore_index=False).set_index('mode',append=True).swaplevel(i='year',j='mode').sort_index()
+        if uploaded_demand_csv is None:
+            inputs.uploaded_demand = blank_demand.melt(var_name='mode',ignore_index=False).set_index('mode',append=True).swaplevel(i='year',j='mode').sort_index()
 
     
-    st.header('Assumed demand by mode')
+    
+    basic_demand = demand_calcs.get_basic_demand_frame()
+
     fig = px.line(basic_demand.rename(columns={'value':'Daily Traffic'}).reset_index(), x='year',y='Daily Traffic', color = "mode")
     fig.update_yaxes(range=[0,round(1.1*max(basic_demand['value']),-2)],hoverformat='.0f')
     st.plotly_chart(fig)
@@ -412,6 +437,13 @@ with st.expander('Trip Characteristics',False):
 
     inputs.trip_distance_change = stb.number_table('trip_distance_change')
     stb.help_button('trip_distance_change')
+
+    trip_distance_check = inputs.trip_distance_raw + inputs.trip_distance_change
+    trip_distance_check = trip_distance_check>0
+
+    for mode in trip_distance_check.index:
+        if not(trip_distance_check.loc[mode].values[0]):
+            st.error('The reduction in distance for '+mode+' is larger than the total trip distance.')
 
     st.markdown('''---''')
 
@@ -552,6 +584,7 @@ if inputs.number_of_intersections > 0:
 save_file.to_csv('saved_vars.csv')
 
 
+
 col1, col2, col3 = st.columns(3)
 
 calculate_results = col1.checkbox('Calculate results')
@@ -561,6 +594,8 @@ if calculate_results:
 
     if calculate_sensitivities:
         make_downloadables = col3.checkbox('Download results')
+    
+    outputs.exported_sensitivities = pd.DataFrame()
 
 
     benefits = CBA.calculate_benefits(demand)
@@ -585,8 +620,7 @@ if calculate_results:
 
     st.header('Results')
     with st.expander('Results',False):
-        st.header('Headline results')
-
+        st.header('Headline results')        
         cols = st.columns(3)
         i = 0
         for result in outputs.headline_results:
@@ -658,11 +692,12 @@ if calculate_results:
             except:
                 df = pd.DataFrame(df.sum())
                 df.rename(columns={0:'value'},inplace=True)
-            df = df.style.format('${:,.0f}')
-            df
+            df_nice = df.style.format('${:,.0f}')
+            df_nice
 
             with pd.ExcelWriter('Custom table.xlsx') as writer:
-                df.to_excel(writer,sheet_name='Custom table')
+                df = df.reset_index()
+                df.to_excel(writer,sheet_name='Custom table',index=False)
 
             with open('Custom table.xlsx','rb') as file:
                 results_download_button = st.download_button(
@@ -690,6 +725,8 @@ if calculate_results:
             stb.sensitivity_test('transport_share_sensitivity',convert_to_decimal=False)
 
             (outputs.exported_sensitivities).set_index('Sensitivity',inplace=True)
+            (outputs.exported_sensitivities_table).set_index('Sensitivity',inplace=True)
+
 
             
 
@@ -703,16 +740,18 @@ if calculate_results:
             df = df.append(discounted_costs.groupby('cost').sum())
             df = df.rename(columns={'value':facility_name})
             df.index.name = 'output'
-            excel_tables['Headline results'] = df
+            excel_tables['Headline results'] = df.reset_index()
+            excel_tables['Sensitivity Tests'] = outputs.exported_sensitivities_table.reset_index()
 
             excel_tables['Discounted Benefits'] = discounted_benefits.reset_index()
             excel_tables['Discounted Costs'] = discounted_costs.reset_index()
             excel_tables['Undiscounted Benefits'] = benefits.reset_index()
             excel_tables['Undiscounted Costs'] = inputs.costs.reset_index()
 
+
             with pd.ExcelWriter(facility_name+' CBA results.xlsx') as writer:
                 for sheet in excel_tables:
-                    excel_tables[sheet].to_excel(writer,sheet_name=sheet)
+                    excel_tables[sheet].to_excel(writer,sheet_name=sheet,index=False)
 
             with open(facility_name+' CBA results.xlsx','rb') as file:
                 results_download_button = st.download_button(

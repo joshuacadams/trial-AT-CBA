@@ -19,4 +19,4 @@ The practitioner will need consider the most appropriate diversion rates given t
 
 Diversion rates are most useful for small to medium sized projects that will have some impact on demand and are likely to generate new active travel trips. As the size of an initiative increases, the use of a demand model may be worthwhile.
 
-See: ATAP M4 - Active Travel (forthcoming - 20212), section 9.4.
+See: ATAP M4 - Active Travel (forthcoming - 2021), section 9.4.
