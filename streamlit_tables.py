@@ -208,7 +208,7 @@ def sensitivity_test(sensitivity,bounding_parameter=None,convert_to_decimal=True
     do_sensitivity_CBA and displays the high level CBA results in the row. Default
     values and text are defined in names/sensitivity_test.csv"""
 
-    defaults = inputs.sensitivities.loc[sensitivity]
+    defaults = inputs.sensitivities.loc[sensitivity].copy()
     cols = st.columns(4)
 
     if bounding_parameter == None:
@@ -217,6 +217,12 @@ def sensitivity_test(sensitivity,bounding_parameter=None,convert_to_decimal=True
     else:
         up_min = bounding_parameter
         down_max = bounding_parameter
+        if up_min > defaults['up_default']:
+            defaults['up_default'] = up_min + 1
+        if down_max < defaults['down_default']:
+            defaults['down_default'] = down_max - 1
+
+
 
     cols[0].markdown("")
     sens_up_input= cols[0].number_input(
@@ -282,6 +288,8 @@ def sensitivity_test(sensitivity,bounding_parameter=None,convert_to_decimal=True
     
     df = pd.DataFrame([sens_down_results])
     df.insert(0,'Sensitivity',defaults['down_name'][:-1]+'('+str(sens_down_input)+'%)')
+
+    outputs.exported_sensitivities_table = pd.concat([outputs.exported_sensitivities_table,df])
 
     df['NPV'] = df['NPV'].map('${:,.0f}'.format)
     df['BCR1'] = df['BCR1'].map("{:,.2f}".format)

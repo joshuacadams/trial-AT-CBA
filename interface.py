@@ -52,6 +52,9 @@ with st.expander('Save or load projects'):
     
     if st.button('New Project'):
         st.session_state['uploaded_project'] = False
+        st.session_state['upload_option'] = False
+        uploaded_project = None
+
 
     #Code for when there are multiple default files
     # default_path_name = st.selectbox('Default parameters',os.listdir('defaults/'))
@@ -64,11 +67,21 @@ with st.expander('Save or load projects'):
                 label='Save Project',
                 data=file,
                 file_name = 'Active Travel Project.csv')
-
-    uploaded_project = st.file_uploader('Upload Saved Project',type='csv')
+    upload_option = st.button('Load Project')
+    
+    if 'upload_option' not in st.session_state:
+        st.session_state['upload_option'] = False
+    
+    if upload_option:
+        st.session_state['upload_option'] = True
+    
+    if st.session_state['upload_option']:
+        st.warning('Before uploading a project, close and re-open the browser window to clear any inputs you have changed')
+        uploaded_project = st.file_uploader('Upload Saved Project',type='csv')
     if uploaded_project is not None:
         pd.read_csv(uploaded_project).to_csv('uploaded_project.csv')
         st.session_state['uploaded_project'] = True
+
    
     
     stb.help_button('save_or_load')
@@ -87,7 +100,6 @@ if st.session_state['uploaded_project'] == True:
         'uploaded_project.csv',
         index_col = ['parameter','dimension_0','dimension_1']
         )
-    st.markdown('You uploaded a file YAY')
 else:
     inputs.default_parameters = pd.read_csv(
         'defaults/'+default_path_name,
@@ -127,6 +139,9 @@ with st.expander('Years and discount rate',False):
     inputs.opening_year = stb.number_table('opening_year')
     stb.help_button('opening_year')
     inputs.opening_year = int(inputs.opening_year)
+
+    if inputs.start_year > inputs.opening_year:
+        st.error('Start year is after the opening year. Construction cannot commence after a project opens')
 
     inputs.annualisation = stb.number_table('annualisation')
     stb.help_button('annualisation')
@@ -402,8 +417,10 @@ with st.expander('Demand',False):
     
     
     basic_demand = demand_calcs.get_basic_demand_frame()
-
-    fig = px.line(basic_demand.rename(columns={'value':'Daily Traffic'}).reset_index(), x='year',y='Daily Traffic', color = "mode")
+    df = basic_demand.copy()
+    df = df.drop(inputs.start_year,level='year')
+    df = df.rename(columns={'value':'Daily Traffic'}).reset_index()
+    fig = px.line(df, x='year',y='Daily Traffic', color = "mode")
     fig.update_yaxes(range=[0,round(1.1*max(basic_demand['value']),-2)],hoverformat='.0f')
     st.plotly_chart(fig)
 
@@ -450,15 +467,6 @@ with st.expander('Trip Characteristics',False):
     inputs.surface_distance_prop_base = stb.number_table('surface_distance_prop_base',percent = True)
     inputs.surface_distance_prop_project = stb.number_table('surface_distance_prop_project',percent = True)
 
-    # if inputs.default_parameters.loc['subtract_project_length',np.NaN,np.NaN]['str_value'] == "TRUE":
-    #     default_subtract_project_length = True
-    # else:
-    #     default_subtract_project_length = False
-    # inputs.subtract_project_length = st.checkbox(
-    #     'Apply infrastructure type proportions only to parts of the trip not on the project infrastructure',
-    #     value = default_subtract_project_length
-    #     )
-    # inputs.saved_vars.loc['subtract_project_length','str_value'] = inputs.subtract_project_length
     
     inputs.subtract_project_length = True
 
@@ -479,7 +487,7 @@ with st.expander('Safety',False):
     stb.help_button('relative_risk')
 
 
-with st.expander('Mode attributes',False):
+with st.expander('Speed',False):
     inputs.speed_active = stb.number_table('speed_active')
     stb.help_button('speed_active')
 
@@ -519,42 +527,6 @@ with st.expander('Unit Values',False):
     # stb.help_button('parking_cost')
 
 
-#Check if distance travelled on base and project case surfaces is at least as long as facility
-
-# existing_check_distance = (
-#     inputs.trip_distance_raw
-#     *(inputs.surface_distance_prop_base.loc[inputs.facility_type_existing]/100)
-#     )
-
-# new_check_distance = (
-#     inputs.trip_distance_raw
-#     *(inputs.surface_distance_prop_project.loc[inputs.facility_type_new]/100)
-#     )
-
-# distance_check_mode_list = existing_check_distance.index.to_list()
-# distance_check_mode_list.remove('Pedestrian')
-
-# for thismode in distance_check_mode_list:
-#     if existing_check_distance.loc[thismode,'value'] < inputs.facility_length:
-#         st.warning(
-#             "Base case distance on "
-#             +inputs.facility_type_existing+
-#             " for "+thismode+
-#             " is shorter than the facility. Assume a higher proportion of trip distance for "
-#             +inputs.facility_type_existing+
-#             " in the base case"
-#             )
-
-# for thismode in distance_check_mode_list:
-#     if new_check_distance.loc[thismode,'value'] < inputs.facility_length:
-#         st.warning(
-#             "Project case distance on "
-#             +inputs.facility_type_new+
-#             " for "+thismode+
-#             " is shorter than the facility. Assume a higher proportion of trip distance for "
-#             +inputs.facility_type_new+
-#             " in the project case"
-#             )
 
 ###Append costs to saved vars
 # This should remain at the end of the inputs but before any results.
@@ -570,7 +542,9 @@ saved_costs.sort_index(inplace=True)
 saved_costs.index.names = (['parameter','dimension_0'])
 saved_costs['dimension_1'] = ""
 saved_costs.set_index('dimension_1',inplace=True,append=True)
-save_file = inputs.saved_vars.append(saved_costs)
+
+save_file = pd.concat([inputs.saved_vars,saved_costs])
+
 
 if inputs.number_of_intersections > 0:
     saved_intersection_inputs = inputs.intersection_inputs
@@ -578,7 +552,7 @@ if inputs.number_of_intersections > 0:
     saved_intersection_inputs.set_index('parameter',append=True,inplace=True)
     saved_intersection_inputs.swaplevel(0,2)
     saved_intersection_inputs.index.names = (['parameter','dimension_0','dimension_1'])
-    save_file = save_file.append(saved_intersection_inputs)
+    save_file = pd.concat([save_file,saved_intersection_inputs])
 
 
 save_file.to_csv('saved_vars.csv')
@@ -636,26 +610,42 @@ if calculate_results:
 
         if results_format =='Charts':
 
-            col1,col2,col3 = st.columns(3)
+            col1,col2,col3,col4 = st.columns(4)
 
             df_select = col1.selectbox('Measure to chart',outputs.results_dict.keys())
             df = outputs.results_dict[df_select]
 
-            chart_axis = col2.selectbox('Variable 1',df.index.names)
+            chart_axis = col2.selectbox('Bars',df.index.names)
             axis_list_2 = [None] + df.index.names.copy()
             axis_list_2.remove(chart_axis)
-            chart_axis_2 = col3.selectbox('Variable 2',axis_list_2)
+            chart_axis_2 = col3.selectbox('Colours',axis_list_2)
 
-            if chart_axis_2 is not None:
-                df = df.groupby([chart_axis,chart_axis_2]).sum().reset_index()
-                fig = px.bar(df,y=chart_axis,x='value',color=chart_axis_2,orientation='h')
-                fig.update_layout(autosize=True,width=900, title=df_select)
-                st.plotly_chart(fig.update_traces(hovertemplate='$%{x:,.0f}'))
-            else:
-                df = df.groupby(chart_axis).sum()
-                fig = px.bar(df,y=df.index,x='value',orientation='h')
-                fig.update_layout(autosize=True,width=900, title=df_select)
-                st.plotly_chart(fig.update_traces(hovertemplate='$%{x:,.0f}'))
+            chart_orientation = col4.selectbox('Orientation',['horizontal','vertical'])
+
+            if chart_orientation == 'horizontal':
+                
+                if chart_axis_2 is not None:
+                    df = df.groupby([chart_axis,chart_axis_2]).sum().reset_index()
+                    fig = px.bar(df,y=chart_axis,x='value',color=chart_axis_2,orientation='h')
+                    fig.update_layout(autosize=True,width=900, title=df_select)
+                    st.plotly_chart(fig.update_traces(hovertemplate='$%{x:,.0f}'))
+                else:
+                    df = df.groupby(chart_axis).sum()
+                    fig = px.bar(df,y=df.index,x='value',orientation='h')
+                    fig.update_layout(autosize=True,width=900, title=df_select)
+                    st.plotly_chart(fig.update_traces(hovertemplate='$%{x:,.0f}'))
+
+            if chart_orientation == 'vertical':
+                if chart_axis_2 is not None:
+                    df = df.groupby([chart_axis,chart_axis_2]).sum().reset_index()
+                    fig = px.bar(df,x=chart_axis,y='value',color=chart_axis_2,orientation='v')
+                    fig.update_layout(autosize=True,width=900, title=df_select)
+                    st.plotly_chart(fig.update_traces(hovertemplate='$%{y:,.0f}'))
+                else:
+                    df = df.groupby(chart_axis).sum()
+                    fig = px.bar(df,x=df.index,y='value',orientation='v')
+                    fig.update_layout(autosize=True,width=900, title=df_select)
+                    st.plotly_chart(fig.update_traces(hovertemplate='$%{y:,.0f}'))
             
             fig.write_image('Custom chart.svg')
             with open('Custom chart.svg','rb') as file:
@@ -716,6 +706,9 @@ if calculate_results:
             col3.markdown('BCR1')
             col4.markdown('BCR2')
 
+            outputs.exported_sensitivities = pd.DataFrame()
+            outputs.exported_sensitivities_table = pd.DataFrame()
+
             stb.sensitivity_test('discount_rate',bounding_parameter=inputs.discount_rate,convert_to_decimal=False)
             stb.sensitivity_test('capex_sensitivity')
             stb.sensitivity_test('opex_sensitivity')
@@ -727,6 +720,17 @@ if calculate_results:
             (outputs.exported_sensitivities).set_index('Sensitivity',inplace=True)
             (outputs.exported_sensitivities_table).set_index('Sensitivity',inplace=True)
 
+            cols = st.columns(3)
+
+            sens_test_chart = cols[0].checkbox('Show sensitivity test chart')
+
+            if sens_test_chart:
+                df = outputs.exported_sensitivities_table.copy()
+                outcome = cols[1].selectbox('Outcome to chart',df.columns.tolist())
+                fig = px.bar(df,x=outcome,orientation='h')
+                fig.update_layout(autosize=True,width=900, title=outcome+" for sensitivity tests")
+                st.plotly_chart(fig.update_traces(hovertemplate='$%{x:,.2f}'))
+
 
             
 
@@ -736,8 +740,8 @@ if calculate_results:
             excel_tables = {}
 
             df = pd.DataFrame.from_dict(outputs.results, orient='index',columns=['value'])
-            df = df.append(discounted_benefits.groupby('benefit').sum())
-            df = df.append(discounted_costs.groupby('cost').sum())
+            df = pd.concat([df,(discounted_benefits.groupby('benefit').sum())])
+            df = pd.concat([df,(discounted_costs.groupby('cost').sum())])
             df = df.rename(columns={'value':facility_name})
             df.index.name = 'output'
             excel_tables['Headline results'] = df.reset_index()
@@ -747,6 +751,7 @@ if calculate_results:
             excel_tables['Discounted Costs'] = discounted_costs.reset_index()
             excel_tables['Undiscounted Benefits'] = benefits.reset_index()
             excel_tables['Undiscounted Costs'] = inputs.costs.reset_index()
+            excel_tables['Demand'] = demand.reset_index()
 
 
             with pd.ExcelWriter(facility_name+' CBA results.xlsx') as writer:
